@@ -11,6 +11,7 @@ from pathlib import Path
 
 from flask import Flask, abort, jsonify, redirect, render_template, request, send_file, session, url_for
 from werkzeug.utils import secure_filename
+from PIL import Image
 
 
 
@@ -636,6 +637,48 @@ def view_file(file_id: str):
         download_name=resolve_download_name(meta, hpw),
     )
     return response
+
+
+@app.get("/files/<file_id>/thumbnail")
+def view_thumbnail(file_id: str):
+    require_unlocked()
+    hpw = session["hpw"]
+    try:
+        items = load_metadata(hpw)
+    except ValueError:
+        abort(403)
+    meta = next((m for m in items if m.get("id") == file_id), None)
+    if not meta:
+        abort(404)
+
+    blob_path = STORAGE_DIR / f"{file_id}.bin"
+    if not blob_path.exists():
+        abort(404)
+
+    try:
+        plaintext = decrypt_bytes(hpw, blob_path.read_bytes())
+    except Exception:
+        abort(403)
+
+    try:
+        img = Image.open(io.BytesIO(plaintext))
+        img.thumbnail((200, 200))
+
+        if img.mode in ("RGBA", "P"):
+            img = img.convert("RGB")
+            
+        thumb_io = io.BytesIO()
+        img.save(thumb_io, "JPEG", quality=85)
+        thumb_io.seek(0)
+        
+        return send_file(
+            thumb_io,
+            mimetype="image/jpeg",
+            as_attachment=False,
+            download_name=f"thumb_{resolve_download_name(meta, hpw)}.jpg"
+        )
+    except Exception:
+        abort(404)
 
 
 @app.delete("/files/<file_id>")

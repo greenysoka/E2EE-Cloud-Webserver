@@ -2,7 +2,7 @@
 - [ ] Improve login window
 - [ ] Add options for different themes
 - [ ] Encrypt files client sided (if possible)
-- [ ] Render smaller thumbnails for image types
+- [x] Render smaller thumbnails for image types
 - [ ] Improve the Upload timestamp
 - [ ] Add a grid view
 - [ ] Add folders

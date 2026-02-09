@@ -71,7 +71,7 @@
             <div class="file-name">{{ f.display_name }}</div>
             {% if f.mime and f.mime.startswith('image/') %}
             <div class="file-preview">
-              <img src="{{ url_for('view_file', file_id=f.id) }}" alt="{{ f.display_name }}" loading="lazy" />
+              <img src="{{ url_for('view_thumbnail', file_id=f.id) }}" alt="{{ f.display_name }}" loading="lazy" />
             </div>
             {% endif %}
             <div class="file-meta">{{ f.mime }} · {{ (f.size / 1024)|round(1) }} KB</div>
