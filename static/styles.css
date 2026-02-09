@@ -529,10 +529,24 @@ select:focus {
 }
 
 @media (max-width: 650px) {
+  .shell {
+    padding: 20px 16px;
+  }
+
+  .panel {
+    padding: 20px;
+  }
+
+  .drop-zone {
+    padding: 24px 20px;
+    min-height: 200px;
+  }
+
   .topbar {
     flex-direction: column;
     align-items: flex-start;
     gap: 16px;
+    margin-bottom: 24px;
   }
 
   .actions {
