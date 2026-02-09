@@ -5,6 +5,20 @@ async function sha256Hex(message) {
   return hashArray.map((b) => b.toString(16).padStart(2, "0")).join("");
 }
 
+const formatSize = (bytes) => {
+  if (bytes === 0) return '0 B';
+  const k = 1024;
+  const sizes = ['B', 'KB', 'MB', 'GB', 'TB'];
+  const i = Math.floor(Math.log(bytes) / Math.log(k));
+  return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+};
+
+const formatDate = (dateString = '') => {
+  if (!dateString) return '';
+  const d = new Date(dateString);
+  return d.toLocaleString();
+};
+
 function setHint(el, message, isError = false) {
   if (!el) return;
   el.textContent = message;
@@ -229,33 +243,56 @@ function setupFilters() {
   };
 
   const applyFilters = () => {
+    const list = document.getElementById("file-list");
+    if (!list) return;
+
+    if (!window.fileData) return;
+
     const query = (searchInput?.value || "").trim().toLowerCase();
     const dateValue = dateFilter?.value || "all";
     const sizeValue = sizeFilter?.value || "all";
     const sortValue = sortBy?.value || "newest";
-    const visible = [];
 
-    cards.forEach((card) => {
-      const name = `${card.dataset.displayName || ""} ${card.dataset.fileName || ""}`.toLowerCase();
+    let visible = window.fileData.filter(file => {
+      const name = (file.display_name || file.alias || "").toLowerCase();
       const matchesQuery = !query || name.includes(query);
-      const matchesDate = matchDate(card, dateValue);
-      const matchesSize = matchSize(card, sizeValue);
-      const shouldShow = matchesQuery && matchesDate && matchesSize;
-      card.style.display = shouldShow ? "" : "none";
-      if (shouldShow) {
-        visible.push(card);
+
+      let matchesDate = true;
+      if (dateValue !== 'all') {
+        const now = Date.now();
+        const uploaded = Date.parse(file.uploaded_at);
+        let windowMs = 0;
+        if (dateValue === "24h") windowMs = 24 * 60 * 60 * 1000;
+        if (dateValue === "7d") windowMs = 7 * 24 * 60 * 60 * 1000;
+        if (dateValue === "30d") windowMs = 30 * 24 * 60 * 60 * 1000;
+        matchesDate = uploaded >= now - windowMs;
       }
+
+      let matchesSize = true;
+      if (sizeValue !== 'all') {
+        const mb = file.size / (1024 * 1024);
+        if (sizeValue === "lt1") matchesSize = mb < 1;
+        if (sizeValue === "1to10") matchesSize = mb >= 1 && mb <= 10;
+        if (sizeValue === "10to100") matchesSize = mb > 10 && mb <= 100;
+        if (sizeValue === "gt100") matchesSize = mb > 100;
+      }
+
+      return matchesQuery && matchesDate && matchesSize;
     });
 
-    const sorted = visible.sort((a, b) => {
-      if (sortValue === "largest") return getSizeBytes(b) - getSizeBytes(a);
-      if (sortValue === "smallest") return getSizeBytes(a) - getSizeBytes(b);
-      if (sortValue === "oldest") return getUploadedTime(a) - getUploadedTime(b);
-      return getUploadedTime(b) - getUploadedTime(a);
+    visible.sort((a, b) => {
+      const sizeA = a.size || 0;
+      const sizeB = b.size || 0;
+      const dateA = Date.parse(a.uploaded_at || 0);
+      const dateB = Date.parse(b.uploaded_at || 0);
+
+      if (sortValue === "largest") return sizeB - sizeA;
+      if (sortValue === "smallest") return sizeA - sizeB;
+      if (sortValue === "oldest") return dateA - dateB;
+      return dateB - dateA;
     });
 
-    const hidden = cards.filter((card) => !visible.includes(card));
-    [...sorted, ...hidden].forEach((card) => list.appendChild(card));
+    renderFileList(visible, list);
 
     if (noResults) {
       noResults.hidden = visible.length !== 0;
@@ -275,7 +312,86 @@ function setupFilters() {
     });
   });
 
-  applyFilters();
+  window.applyFilters = applyFilters;
+}
+
+function renderFileList(files, container) {
+  const template = document.getElementById('file-card-template');
+  const emptyState = document.getElementById('empty-state');
+  container.innerHTML = '';
+
+  if (files.length === 0) {
+    return;
+  }
+
+  files.forEach((file, index) => {
+    const clone = template.content.cloneNode(true);
+    const card = clone.querySelector('.file-card');
+
+    card.style.setProperty('--i', index);
+
+    card.dataset.fileId = file.id;
+    card.dataset.fileName = file.alias;
+    card.dataset.displayName = file.display_name;
+    card.dataset.size = file.size;
+    card.dataset.uploaded = file.uploaded_at;
+
+    const preview = card.querySelector('.file-preview');
+    if (file.mime && file.mime.startsWith('image/')) {
+      const img = document.createElement('img');
+      img.alt = file.display_name;
+      img.loading = 'lazy';
+      img.addEventListener('load', () => img.classList.add('is-loaded'));
+      img.src = `/files/${file.id}/thumbnail`;
+      preview.appendChild(img);
+    } else {
+      if (!file.mime || !file.mime.startsWith('image/')) {
+        preview.remove();
+      }
+    }
+
+    card.querySelector('.file-name').textContent = file.display_name;
+    const metaText = `${file.mime} · ${formatSize(file.size)}`;
+    card.querySelector('.file-details .file-meta:not(.uploaded-at)').textContent = metaText;
+
+    card.querySelector('.uploaded-at').textContent = 'Uploaded ' + formatDate(file.uploaded_at);
+
+    const downloadBtn = card.querySelector('.download-btn');
+    downloadBtn.href = `/files/${file.id}?download=1`;
+
+    container.appendChild(clone);
+  });
+
+  setupAnimations();
+}
+
+async function fetchFiles() {
+  const list = document.getElementById("file-list");
+  const countEl = document.getElementById("file-count");
+  const emptyState = document.getElementById("empty-state");
+  const loading = document.getElementById("loading-indicator");
+
+  try {
+    const res = await fetch('/api/files');
+    if (!res.ok) throw new Error('Failed to load files');
+    const data = await res.json();
+
+    window.fileData = data.files;
+
+    if (countEl) countEl.textContent = `${window.fileData.length} files`;
+
+    if (loading) loading.remove();
+
+    if (window.fileData.length === 0) {
+      if (emptyState) emptyState.hidden = false;
+    } else {
+      window.applyFilters();
+    }
+
+  } catch (err) {
+    console.error(err);
+    if (list) list.textContent = "Error loading files.";
+  }
 }
 
 function setupAnimations() {
@@ -327,37 +443,18 @@ function setupDeleteModal() {
     modal.setAttribute("aria-hidden", "false");
   };
 
-  document.querySelectorAll(".delete-btn").forEach((btn) => {
-    btn.addEventListener("click", (event) => {
-      const card = event.target.closest(".file-card");
+  document.addEventListener("click", (event) => {
+    if (event.target.closest(".delete-btn")) {
+      const btn = event.target.closest(".delete-btn");
+      const card = btn.closest(".file-card");
       if (!card) return;
       const fileId = card.dataset.fileId;
       const name = card.dataset.displayName || card.dataset.fileName || "this file";
       openModal(fileId, name);
-    });
-  });
-
-  modal.addEventListener("click", (event) => {
-    if (event.target.dataset.close === "true") {
-      closeModal();
     }
   });
 
-  cancelBtn?.addEventListener("click", closeModal);
 
-  confirmBtn?.addEventListener("click", async () => {
-    if (!pendingId) return;
-    try {
-      const res = await fetch(`/files/${pendingId}`, { method: "DELETE" });
-      if (!res.ok) {
-        setHint(document.getElementById("upload-status"), "Delete failed.", true);
-      }
-    } catch (err) {
-      setHint(document.getElementById("upload-status"), "Delete failed.", true);
-    }
-    closeModal();
-    window.location.reload();
-  });
 }
 
 function setupRenameModal() {
@@ -392,14 +489,15 @@ function setupRenameModal() {
     if (input) input.focus();
   };
 
-  document.querySelectorAll(".rename-btn").forEach((btn) => {
-    btn.addEventListener("click", (event) => {
-      const card = event.target.closest(".file-card");
+  document.addEventListener("click", (event) => {
+    if (event.target.closest(".rename-btn")) {
+      const btn = event.target.closest(".rename-btn");
+      const card = btn.closest(".file-card");
       if (!card) return;
       const fileId = card.dataset.fileId;
       const name = card.dataset.displayName || card.dataset.fileName || "";
       openModal(fileId, name);
-    });
+    }
   });
 
   modal.addEventListener("click", (event) => {
@@ -445,4 +543,8 @@ setupFilters();
 setupDeleteModal();
 setupRenameModal();
 setupAnimations();
-setupImageLoading();
+setupDeleteModal();
+setupRenameModal();
+if (document.getElementById('file-list')) {
+  fetchFiles();
+}

@@ -1,6 +1,7 @@
 - [x] Render smaller thumbnails for image types
 - [x] Show file sizes correctly
 - [x] Button to edit file names
+- [x] Improve loading & UI
 - [ ] Replace Google Fonts with local fonts
 - [ ] Improve login window
 - [ ] Add options for different themes

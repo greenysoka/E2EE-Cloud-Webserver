@@ -396,7 +396,6 @@ def index():
     try:
         hpw = session["hpw"]
         items = load_metadata(hpw)
-        files = build_view_metadata(items, hpw)
     except ValueError:
         abort(403)
     used_bytes = compute_storage_usage(items)
@@ -405,7 +404,7 @@ def index():
     percent = min(int((used_bytes / total_bytes) * 100), 100) if total_bytes else 0
     return render_template(
         "index.html",
-        files=files,
+        files=[],
         used_bytes=used_bytes,
         total_bytes=total_bytes,
         used_mb=round(used_bytes / 1024 / 1024, 1),

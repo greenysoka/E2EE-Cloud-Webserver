@@ -25,7 +25,7 @@
     <section class="panel files">
       <div class="files-header">
         <h2>Your Files</h2>
-        <span class="meta">{{ files|length }} files</span>
+        <span id="file-count" class="meta">Loading...</span>
       </div>
       <div class="storage">
         <div class="storage-labels">
@@ -62,36 +62,33 @@
           </select>
         </div>
       </div>
-      {% if files %}
       <div id="file-list" class="file-list">
-        {% for f in files %}
-        <div class="file-card appearing" style="--i: {{ loop.index0 }}" data-file-id="{{ f.id }}"
-          data-file-name="{{ f.alias }}" data-display-name="{{ f.display_name }}" data-size="{{ f.size }}"
-          data-uploaded="{{ f.uploaded_at }}">
+        <div id="loading-indicator" class="empty">
+          <div class="spinner"></div>
+          <p>Decrypting vault...</p>
+        </div>
+      </div>
+      <div id="no-results" class="empty" hidden>No files match your filters.</div>
+      <div id="empty-state" class="empty" hidden>No files yet. Upload your first file above.</div>
+
+      <template id="file-card-template">
+        <div class="file-card appearing">
           <div class="file-main">
-            {% if f.mime and f.mime.startswith('image/') %}
             <div class="file-preview">
-              <img src="{{ url_for('view_thumbnail', file_id=f.id) }}" alt="{{ f.display_name }}" loading="lazy" />
             </div>
-            {% endif %}
             <div class="file-details">
-              <div class="file-name">{{ f.display_name }}</div>
-              <div class="file-meta">{{ f.mime }} · {{ f.size|filesizeformat(binary=True) }}</div>
-              <div class="file-meta">Uploaded {{ f.uploaded_at }}</div>
+              <div class="file-name"></div>
+              <div class="file-meta"></div>
+              <div class="file-meta uploaded-at"></div>
             </div>
           </div>
           <div class="file-actions">
             <button class="btn small rename-btn" type="button">Edit</button>
-            <a class="btn small ghost" href="{{ url_for('view_file', file_id=f.id, download=1) }}">Download</a>
+            <a class="btn small ghost download-btn">Download</a>
             <button class="btn small ghost danger delete-btn" type="button">Delete</button>
           </div>
         </div>
-        {% endfor %}
-      </div>
-      <div id="no-results" class="empty" hidden>No files match your filters.</div>
-      {% else %}
-      <div class="empty">No files yet. Upload your first file above.</div>
-      {% endif %}
+      </template>
     </section>
   </main>
 
