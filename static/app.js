@@ -500,11 +500,7 @@ function setupRenameModal() {
     }
   });
 
-  modal.addEventListener("click", (event) => {
-    if (event.target.dataset.close === "true") {
-      closeModal();
-    }
-  });
+  closeModal();
 
   cancelBtn?.addEventListener("click", closeModal);
 
@@ -536,6 +532,35 @@ function setupRenameModal() {
   });
 }
 
+function setupSettingsPopup() {
+  const btn = document.getElementById("settings-btn");
+  const popup = document.getElementById("settings-popup");
+  if (!btn || !popup) return;
+
+  const toggle = () => {
+    const isHidden = popup.hidden;
+    popup.hidden = !isHidden;
+  };
+
+  btn.addEventListener("click", (e) => {
+    e.stopPropagation();
+    toggle();
+  });
+
+  document.addEventListener("click", (e) => {
+    if (!popup.hidden && !popup.contains(e.target) && e.target !== btn) {
+      popup.hidden = true;
+    }
+  });
+
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape" && !popup.hidden) {
+      popup.hidden = true;
+      btn.focus();
+    }
+  });
+}
+
 handleUnlock();
 setupDropZone();
 setupLockButton();
@@ -543,8 +568,7 @@ setupFilters();
 setupDeleteModal();
 setupRenameModal();
 setupAnimations();
-setupDeleteModal();
-setupRenameModal();
+setupSettingsPopup();
 if (document.getElementById('file-list')) {
   fetchFiles();
 }
