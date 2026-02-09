@@ -65,8 +65,9 @@
       {% if files %}
       <div id="file-list" class="file-list">
         {% for f in files %}
-        <div class="file-card" data-file-id="{{ f.id }}" data-file-name="{{ f.alias }}"
-          data-display-name="{{ f.display_name }}" data-size="{{ f.size }}" data-uploaded="{{ f.uploaded_at }}">
+        <div class="file-card appearing" style="--i: {{ loop.index0 }}" data-file-id="{{ f.id }}"
+          data-file-name="{{ f.alias }}" data-display-name="{{ f.display_name }}" data-size="{{ f.size }}"
+          data-uploaded="{{ f.uploaded_at }}">
           <div class="file-main">
             {% if f.mime and f.mime.startswith('image/') %}
             <div class="file-preview">

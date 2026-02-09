@@ -45,6 +45,16 @@ h1 {
   line-height: 2.5rem;
 }
 
+@keyframes shimmer {
+  0% {
+    background-position: -200% 0;
+  }
+
+  100% {
+    background-position: 200% 0;
+  }
+}
+
 h2 {
   font-size: 1.875rem;
   line-height: 2.25rem;
@@ -419,6 +429,9 @@ select:focus {
   border-radius: 8px;
   overflow: hidden;
   flex-shrink: 0;
+  background: linear-gradient(90deg, var(--bg) 25%, var(--panel-alt) 50%, var(--bg) 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
 }
 
 .file-preview img {
@@ -426,6 +439,12 @@ select:focus {
   height: 100%;
   object-fit: cover;
   display: block;
+  opacity: 0;
+  transition: opacity 0.3s ease-in;
+}
+
+.file-preview img.is-loaded {
+  opacity: 1;
 }
 
 .file-details {
@@ -596,4 +615,22 @@ select:focus {
   padding: 16px;
   border: 1px solid var(--border-soft);
   border-radius: 12px;
+}
+
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.file-card.appearing {
+  opacity: 0;
+  animation: fadeInUp 0.5s ease forwards;
+  animation-delay: calc(var(--i) * 0.07s);
 }

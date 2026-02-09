@@ -262,13 +262,46 @@ function setupFilters() {
     }
   };
 
+  const stopAnimations = () => {
+    cards.forEach(c => c.classList.remove('appearing'));
+  };
+
   [searchInput, dateFilter, sizeFilter, sortBy].forEach((control) => {
     if (!control) return;
     const eventName = control === searchInput ? "input" : "change";
-    control.addEventListener(eventName, applyFilters);
+    control.addEventListener(eventName, () => {
+      stopAnimations();
+      applyFilters();
+    });
   });
 
   applyFilters();
+}
+
+function setupAnimations() {
+  const cards = document.querySelectorAll('.file-card.appearing');
+  cards.forEach(card => {
+    card.addEventListener('animationend', () => {
+      card.classList.remove('appearing');
+    });
+  });
+}
+
+
+function setupImageLoading() {
+  const images = document.querySelectorAll('.file-preview img');
+  images.forEach(img => {
+    if (img.complete) {
+      img.classList.add('is-loaded');
+    } else {
+      img.addEventListener('load', () => {
+        img.classList.add('is-loaded');
+      });
+      img.addEventListener('error', () => {
+        img.classList.add('is-loaded');
+      });
+    }
+  });
 }
 
 function setupDeleteModal() {
@@ -411,3 +444,5 @@ setupLockButton();
 setupFilters();
 setupDeleteModal();
 setupRenameModal();
+setupAnimations();
+setupImageLoading();
