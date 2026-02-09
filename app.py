@@ -12,10 +12,7 @@ from pathlib import Path
 from flask import Flask, abort, jsonify, redirect, render_template, request, send_file, session, url_for
 from werkzeug.utils import secure_filename
 
-try:
-    import tomllib
-except ModuleNotFoundError:
-    import tomli as tomllib
+
 
 import pyotp
 import qrcode
@@ -32,7 +29,6 @@ from werkzeug.middleware.proxy_fix import ProxyFix
 
 
 BASE_DIR = Path(__file__).resolve().parent
-CONFIG_PATH = BASE_DIR / "config" / "config.toml"
 ENV_PATH = BASE_DIR / "config" / ".env"
 
 
@@ -51,35 +47,70 @@ def load_env_file():
 
 
 def load_config() -> dict:
-    config = {}
-    if CONFIG_PATH.exists():
-        with CONFIG_PATH.open("rb") as f:
-            config = tomllib.load(f)
-    app_cfg = config.get("app", {})
-    return {
-        "storage_dir": app_cfg.get("storage_dir", "storage"),
-        "max_upload_mb": int(app_cfg.get("max_upload_mb", 200)),
-        "max_storage_mb": int(app_cfg.get("max_storage_mb", 1024)),
-        "pbkdf2_iterations": int(app_cfg.get("pbkdf2_iterations", 200_000)),
-        "session_hours": int(app_cfg.get("session_hours", 8)),
-        "secret_key_env": app_cfg.get("secret_key_env", "FLASK_SECRET_KEY"),
-        "secure_cookies": bool(int(app_cfg.get("secure_cookies", 0))),
-        "encrypt_metadata": bool(int(app_cfg.get("encrypt_metadata", 1))),
-        "totp_valid_window": int(app_cfg.get("totp_valid_window", 2)),
+
+    cfg = {
+        "storage_dir": "storage",
+        "max_upload_mb": 200,
+        "max_storage_mb": 1000,
+        "pbkdf2_iterations": 600000,
+        "session_hours": 8,
+        "secret_key_env": "FLASK_SECRET_KEY",
+        "secure_cookies": 1,
+        "encrypt_metadata": 1,
+        "totp_valid_window": 2,
     }
+
+    for key, output_key, cast in [
+        ("STORAGE_DIR", "storage_dir",str),
+        ("MAX_UPLOAD_MB", "max_upload_mb", int),
+        ("MAX_STORAGE_MB", "max_storage_mb", int),
+        ("PBKDF2_ITERATIONS", "pbkdf2_iterations", int),
+        ("SESSION_HOURS", "session_hours", int),
+        ("SECURE_COOKIES", "secure_cookies", int),
+        ("ENCRYPT_METADATA", "encrypt_metadata", int),
+        ("TOTP_VALID_WINDOW", "totp_valid_window", int),
+    ]:
+        val = os.environ.get(key)
+        if val is not None:
+            try:
+                cfg[output_key] = cast(val)
+            except ValueError:
+                pass
+
+    storage_dir = Path(os.environ.get("STORAGE_DIR", cfg["storage_dir"]))
+    if not storage_dir.is_absolute():
+        storage_dir = BASE_DIR / storage_dir
+    
+    custom_cfg_path = storage_dir / "config.json"
+    if custom_cfg_path.exists():
+        try:
+            custom = json.loads(custom_cfg_path.read_text(encoding="utf-8"))
+            for k, v in custom.items():
+                if k in cfg:
+                    cfg[k] = type(cfg[k])(v)
+        except (json.JSONDecodeError, ValueError, TypeError):
+            pass
+
+    return cfg
 
 
 CFG = load_config()
-STORAGE_DIR = BASE_DIR / CFG["storage_dir"]
+STORAGE_DIR_REL = CFG["storage_dir"]
+STORAGE_DIR = Path(STORAGE_DIR_REL)
+if not STORAGE_DIR.is_absolute():
+    STORAGE_DIR = BASE_DIR / STORAGE_DIR_REL
+
 PLAINTEXT_METADATA_PATH = STORAGE_DIR / "metadata.json"
-METADATA_ENCRYPTED = CFG["encrypt_metadata"]
+METADATA_ENCRYPTED = bool(CFG["encrypt_metadata"])
 METADATA_PATH = STORAGE_DIR / ("metadata.enc" if METADATA_ENCRYPTED else "metadata.json")
 AUTH_PATH = STORAGE_DIR / "auth.json"
 LOCK_PATH = STORAGE_DIR / "metadata.lock"
 SESSION_DIR = STORAGE_DIR / "sessions"
-PBKDF2_ITERS = CFG["pbkdf2_iterations"]
+CUSTOM_CONFIG_PATH = STORAGE_DIR / "config.json"
+
+PBKDF2_ITERS = int(CFG["pbkdf2_iterations"])
 TOTP_ISSUER = "EncryptedCloud"
-TOTP_WINDOW = CFG["totp_valid_window"]
+TOTP_WINDOW = int(CFG["totp_valid_window"])
 
 
 
@@ -416,6 +447,21 @@ def unlock_post():
 
     if not auth:
         if not totp_code:
+            try:
+                custom_config = {}
+                if "max_upload_mb" in data:
+                    custom_config["max_upload_mb"] = int(data["max_upload_mb"])
+                if "max_storage_mb" in data:
+                    custom_config["max_storage_mb"] = int(data["max_storage_mb"])
+                if "session_hours" in data:
+                    custom_config["session_hours"] = int(data["session_hours"])
+                
+                if custom_config:
+                    ensure_storage()
+                    CUSTOM_CONFIG_PATH.write_text(json.dumps(custom_config, indent=2), encoding="utf-8")
+            except (ValueError, TypeError):
+                 pass
+
             secret = pyotp.random_base32()
             session["setup_totp"] = secret
             return jsonify(

@@ -71,7 +71,22 @@ async function handleUnlock() {
     try {
       const hpw = await sha256Hex(password);
       const totp = totpInput?.value.trim() || "";
-      const body = stage === "init" ? { hpw, client_time: Date.now() } : { hpw, totp, client_time: Date.now() };
+
+      let body = { hpw, totp, client_time: Date.now() };
+
+      if (stage === "init") {
+        const maxUpload = document.getElementById("max-upload")?.value;
+        const maxStorage = document.getElementById("max-storage")?.value;
+        const sessionHours = document.getElementById("session-hours")?.value;
+
+        body = {
+          hpw,
+          client_time: Date.now(),
+          max_upload_mb: maxUpload ? parseInt(maxUpload) : 200,
+          max_storage_mb: maxStorage ? parseInt(maxStorage) : 1000,
+          session_hours: sessionHours ? parseInt(sessionHours) : 8
+        };
+      }
       const res = await fetch("/unlock", {
         method: "POST",
         headers: { "Content-Type": "application/json" },

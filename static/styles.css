@@ -141,6 +141,7 @@ input[type="password"],
 input[type="file"],
 input[type="text"],
 input[type="email"],
+input[type="number"],
 select {
   font: inherit;
   width: 100%;
@@ -542,4 +543,13 @@ select:focus {
   .modal-actions .btn {
     width: 100%;
   }
+}
+
+.setup-config {
+  display: grid;
+  gap: 16px;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  padding: 16px;
+  border: 1px solid var(--border-soft);
+  border-radius: 12px;
 }

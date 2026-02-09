@@ -25,13 +25,13 @@ Make sure you connect a domain that offers HTTPS (SSL) for your server.
     ```
 
 2.  **Configure**:
-    The app looks for a `.env` file in the `config/` folder for secrets.
-    - Create `config/.env` and add:
+    The app looks for a `.env` file in the `config/` folder.
+    - Copy `config/.env.example` to `config/.env`:
+      ```bash
+      cp config/.env.example config/.env
       ```
-      FLASK_SECRET_KEY=your-super-secret-key-here
-      SERVER_PORT=5000
-      ```
-    - Check out `config/config.toml` if you want to tweak storage limits or sessions.
+    - Open `config/.env` and set `FLASK_SECRET_KEY`.
+    - You can also tweak storage limits variables there.
 
 3.  **Run it!**:
     ```bash
@@ -44,7 +44,7 @@ Make sure you connect a domain that offers HTTPS (SSL) for your server.
 ## Usage
 
 - **First Run**:
-    - You'll be asked to set a **Master Password**. make it a good one!
+    - You'll be asked to set a **Master Password** and configure your **Storage Limits**.
     - Optionally, scan the QR code to set up 2FA.
 - **Unlock**: Enter your password and 2FA code to access your files.
 - **Upload**: Drag and drop or select files to encryption-upload them.
@@ -53,4 +53,3 @@ Make sure you connect a domain that offers HTTPS (SSL) for your server.
 ---
 
 Made with <3
-& built in a private repo first, moved all files to this public repo then :)
