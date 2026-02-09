@@ -736,11 +736,9 @@ def rename_file(file_id: str):
         if not meta:
             abort(404)
 
-        # Determine current name/ext to preserve extension
         current_display = resolve_display_name(meta, hpw)
         _, ext = os.path.splitext(current_display)
-        
-        # If the user provided name doesn't have the extension, append it
+
         if not new_name_base.lower().endswith(ext.lower()):
             new_full_name = new_name_base + ext
         else:
@@ -748,13 +746,8 @@ def rename_file(file_id: str):
 
         if METADATA_ENCRYPTED:
             meta["original_name"] = new_full_name
-            # If we had name_enc, we could update it too, but original_name takes precedence in resolve_display_name
-            # For consistency, let's just use original_name for the new name or re-encrypt name_enc if strictly following struct
-            # The current structure uses 'original_name' if present. 
         else:
             meta["name_enc"] = encrypt_text(hpw, new_full_name)
-            # Remove original_name if it was there to ensure name_enc is used? 
-            # Actually resolve_display_name checks original_name first.
             if "original_name" in meta:
                 meta["original_name"] = new_full_name
         

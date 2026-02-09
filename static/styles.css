@@ -1,16 +1,15 @@
 :root {
-  --bg: #0d0f14;
-  --panel: #0f141c;
-  --panel-alt: #151a25;
+  --bg: #090b11;
+  --panel: #090b11;
+  --panel-alt: #0a0d14;
   --text: #f1f5f9;
   --muted: #94a3b8;
-  --accent: #10337d;
-  --accent-hover: #3657b1;
+  --accent: #172449;
+  --accent-hover: #10337d;
   --accent-2: #10b981;
   --danger: #ef4444;
-  --border: #334155;
-  --border-soft: #475569;
-  --shadow: 0 4px 6px -1px rgba(15, 23, 42, 0.4), 0 2px 4px -1px rgba(15, 23, 42, 0.2);
+  --border: #212a36;
+  --border-soft: #212a36;
 }
 
 * {
@@ -91,7 +90,6 @@ h3 {
   border: 1px solid var(--border);
   border-radius: 12px;
   padding: 32px;
-  box-shadow: var(--shadow);
 }
 
 .panel.center {
@@ -150,14 +148,13 @@ select {
   color: var(--text);
   padding: 10px 14px;
   border-radius: 8px;
-  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+  transition: border-color 0.15s ease;
   outline: none;
 }
 
 input:focus,
 select:focus {
   border-color: var(--accent);
-  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2);
 }
 
 .totp-setup {
@@ -371,7 +368,7 @@ select:focus {
 
 .storage-fill {
   height: 100%;
-  background-color: var(--accent);
+  background-color: var(--accent-hover);
   border-radius: 4px;
 }
 
@@ -390,11 +387,11 @@ select:focus {
   justify-content: space-between;
   align-items: center;
   gap: 16px;
-  transition: border-color 0.15s ease;
+  transition: background-color 0.2s ease-in-out;
 }
 
 .file-card:hover {
-  border-color: var(--border-soft);
+  background-color: var(--panel-alt);
 }
 
 .file-main {
@@ -477,7 +474,6 @@ select:focus {
   border: 1px solid var(--border);
   border-radius: 12px;
   padding: 24px;
-  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
 }
 
 .modal-card h3 {
@@ -561,7 +557,6 @@ select:focus {
   background: var(--bg);
   border-radius: 8px;
   overflow: hidden;
-  border: 1px solid var(--border-soft);
   flex-shrink: 0;
 }
 

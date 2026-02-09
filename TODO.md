@@ -1,12 +1,12 @@
+- [x] Render smaller thumbnails for image types
+- [x] Show file sizes correctly
+- [x] Button to edit file names
 - [ ] Replace Google Fonts with local fonts
 - [ ] Improve login window
 - [ ] Add options for different themes
 - [ ] Encrypt files client sided (if possible)
-- [x] Render smaller thumbnails for image types
-- [x] Show file sizes correctly
 - [ ] Improve the Upload timestamp
 - [ ] Add a grid view
 - [ ] Add folders
 - [ ] Support Autofill for login (Proton doesn't work :sob:)
-- [x] Button to edit file names
 - [ ] API Access to support 3rd party apps
