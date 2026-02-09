@@ -2,7 +2,7 @@
 
 Welcome to your very own **Encrypted Cloud Storage**!
 
-This is a simple, secure, and friendly file storage application built with Flask. It keeps your files safe with AES-GCM encryption and requires a password (plus optional 2FA!) to decrypt and access anything.
+This is a simple, secure, and friendly file storage application built with Flask. It keeps your files safe with AES-GCM encryption and requires a password + TOTP 2FA verification to decrypt and access anything.
 
 ## Features
 
@@ -46,3 +46,4 @@ This is a simple, secure, and friendly file storage application built with Flask
 ---
 
 Made with <3
+& built in a private repo first, moved all files to this public repo then :)
