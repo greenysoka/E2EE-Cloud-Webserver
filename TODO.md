@@ -3,6 +3,7 @@
 - [ ] Add options for different themes
 - [ ] Encrypt files client sided (if possible)
 - [x] Render smaller thumbnails for image types
+- [x] Show file sizes correctly
 - [ ] Improve the Upload timestamp
 - [ ] Add a grid view
 - [ ] Add folders

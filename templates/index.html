@@ -30,7 +30,7 @@
       <div class="storage">
         <div class="storage-labels">
           <span>Storage Used</span>
-          <span>{{ used_mb }} / {{ total_mb }} MB</span>
+          <span>{{ used_bytes|filesizeformat(binary=True) }} / {{ total_bytes|filesizeformat(binary=True) }}</span>
         </div>
         <div class="storage-track">
           <div class="storage-fill" style="width: {{ percent }}%"></div>
@@ -74,8 +74,7 @@
               <img src="{{ url_for('view_thumbnail', file_id=f.id) }}" alt="{{ f.display_name }}" loading="lazy" />
             </div>
             {% endif %}
-            <div class="file-meta">{{ f.mime }} · {{ (f.size / 1024)|round(1) }} KB</div>
-            <div class="file-meta">Alias {{ f.alias }}</div>
+            <div class="file-meta">{{ f.mime }} · {{ f.size|filesizeformat(binary=True) }}</div>
             <div class="file-meta">Uploaded {{ f.uploaded_at }}</div>
           </div>
           <div class="file-actions">
