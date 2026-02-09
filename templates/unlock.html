@@ -18,10 +18,12 @@
       <h1>Unlock Your Vault</h1>
       <p class="sub">Your password is never stored. A hash is used to unlock and decrypt your files.</p>
       {% endif %}
-      <form id="unlock-form" class="stack" autocomplete="off">
+      <form id="unlock-form" class="stack">
+        <input type="text" name="username" value="Vault" autocomplete="username" hidden />
         <label class="field">
           <span>Password</span>
-          <input id="password" type="password" placeholder="Enter your password" required autocomplete="{{ 'new-password' if setup_password else 'current-password' }}" />
+          <input id="password" type="password" placeholder="Enter your password" required
+            autocomplete="{{ 'new-password' if setup_password else 'current-password' }}" />
         </label>
         {% if setup_password %}
         <div class="setup-config">
