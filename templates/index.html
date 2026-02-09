@@ -69,6 +69,11 @@
           data-display-name="{{ f.display_name }}" data-size="{{ f.size }}" data-uploaded="{{ f.uploaded_at }}">
           <div class="file-main">
             <div class="file-name">{{ f.display_name }}</div>
+            {% if f.mime and f.mime.startswith('image/') %}
+            <div class="file-preview">
+              <img src="{{ url_for('view_file', file_id=f.id) }}" alt="{{ f.display_name }}" loading="lazy" />
+            </div>
+            {% endif %}
             <div class="file-meta">{{ f.mime }} · {{ (f.size / 1024)|round(1) }} KB</div>
             <div class="file-meta">Alias {{ f.alias }}</div>
             <div class="file-meta">Uploaded {{ f.uploaded_at }}</div>
