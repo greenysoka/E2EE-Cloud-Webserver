@@ -327,8 +327,87 @@ function setupDeleteModal() {
   });
 }
 
+function setupRenameModal() {
+  const modal = document.getElementById("rename-modal");
+  if (!modal) return;
+  const input = document.getElementById("rename-input");
+  const confirmBtn = document.getElementById("confirm-rename");
+  const cancelBtn = document.getElementById("cancel-rename");
+  let pendingId = null;
+
+  const closeModal = () => {
+    modal.classList.remove("is-open");
+    modal.setAttribute("aria-hidden", "true");
+    pendingId = null;
+    if (input) input.value = "";
+  };
+
+  const openModal = (fileId, currentName) => {
+    pendingId = fileId;
+    if (input) {
+
+      const parts = currentName.split(".");
+      if (parts.length > 1) {
+        parts.pop();
+        input.value = parts.join(".");
+      } else {
+        input.value = currentName;
+      }
+    }
+    modal.classList.add("is-open");
+    modal.setAttribute("aria-hidden", "false");
+    if (input) input.focus();
+  };
+
+  document.querySelectorAll(".rename-btn").forEach((btn) => {
+    btn.addEventListener("click", (event) => {
+      const card = event.target.closest(".file-card");
+      if (!card) return;
+      const fileId = card.dataset.fileId;
+      const name = card.dataset.displayName || card.dataset.fileName || "";
+      openModal(fileId, name);
+    });
+  });
+
+  modal.addEventListener("click", (event) => {
+    if (event.target.dataset.close === "true") {
+      closeModal();
+    }
+  });
+
+  cancelBtn?.addEventListener("click", closeModal);
+
+  const handleRename = async () => {
+    if (!pendingId || !input) return;
+    const newName = input.value.trim();
+    if (!newName) return;
+
+    try {
+      const res = await fetch(`/files/${pendingId}/rename`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: newName }),
+      });
+      if (!res.ok) {
+        setHint(document.getElementById("upload-status"), "Rename failed.", true);
+      } else {
+        window.location.reload();
+      }
+    } catch (err) {
+      setHint(document.getElementById("upload-status"), "Rename failed.", true);
+    }
+    closeModal();
+  };
+
+  confirmBtn?.addEventListener("click", handleRename);
+  input?.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") handleRename();
+  });
+}
+
 handleUnlock();
 setupDropZone();
 setupLockButton();
 setupFilters();
 setupDeleteModal();
+setupRenameModal();

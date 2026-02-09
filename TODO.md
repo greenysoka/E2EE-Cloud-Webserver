@@ -7,5 +7,6 @@
 - [ ] Improve the Upload timestamp
 - [ ] Add a grid view
 - [ ] Add folders
-- [ ] Support Autofill for login (Proton doesn't work)
-- [ ] mhhhhh
+- [ ] Support Autofill for login (Proton doesn't work :sob:)
+- [x] Button to edit file names
+- [ ] API Access to support 3rd party apps

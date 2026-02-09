@@ -78,8 +78,7 @@
             <div class="file-meta">Uploaded {{ f.uploaded_at }}</div>
           </div>
           <div class="file-actions">
-            <a class="btn small" style="color: grey;" href="{{ url_for('view_file', file_id=f.id) }}" target="_blank"
-              rel="noopener">View</a>
+            <button class="btn small rename-btn" type="button">Edit</button>
             <a class="btn small ghost" href="{{ url_for('view_file', file_id=f.id, download=1) }}">Download</a>
             <button class="btn small ghost danger delete-btn" type="button">Delete</button>
           </div>
@@ -101,6 +100,21 @@
       <div class="modal-actions">
         <button id="cancel-delete" class="btn ghost" type="button">Cancel</button>
         <button id="confirm-delete" class="btn danger" type="button">Delete</button>
+      </div>
+    </div>
+  </div>
+  <div id="rename-modal" class="modal" aria-hidden="true">
+    <div class="modal-backdrop" data-close="true"></div>
+    <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="rename-title">
+      <h3 id="rename-title">Rename File</h3>
+      <div class="field">
+        <label for="rename-input">New Name</label>
+        <input id="rename-input" type="text" class="input" placeholder="Enter new name" />
+        <p class="hint">File extension will be preserved.</p>
+      </div>
+      <div class="modal-actions">
+        <button id="cancel-rename" class="btn ghost" type="button">Cancel</button>
+        <button id="confirm-rename" class="btn primary" type="button">Save</button>
       </div>
     </div>
   </div>
