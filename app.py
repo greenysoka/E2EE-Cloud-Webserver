@@ -681,7 +681,13 @@ def handle_401(_):
     return jsonify({"ok": False, "error": "Locked"}), 401
 
 
-if __name__ == "__main__":
+
+def run_server():
     ensure_storage()
     port = int(os.getenv("SERVER_PORT", 5000))
     app.run(debug=os.environ.get("FLASK_DEBUG", "0") == "1", port=port, host="0.0.0.0")
+
+
+if __name__ == "__main__":
+    run_server()
+

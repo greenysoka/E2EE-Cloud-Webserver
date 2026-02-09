@@ -6,4 +6,5 @@
 - [ ] Improve the Upload timestamp
 - [ ] Add a grid view
 - [ ] Add folders
+- [ ] Support Autofill for login (Proton doesn't work)
 - [ ] mhhhhh
