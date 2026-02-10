@@ -4,10 +4,10 @@
 - [x] Improve loading & UI
 - [x] Add options for different themes
 - [x] Improve the Upload timestamp
+- [x] Add a grid view
 - [ ] Replace Google Fonts with local fonts
 - [ ] Improve login window
 - [ ] Encrypt files client sided (if possible)
-- [ ] Add a grid view
 - [ ] Add folders
 - [ ] Support Autofill for login (Proton doesn't work :sob:)
 - [ ] API Access to support 3rd party apps

@@ -315,7 +315,41 @@ function setupFilters() {
   window.applyFilters = applyFilters;
 }
 
+let currentRenderId = 0;
+let thumbnailQueue = [];
+let isProcessingQueue = false;
+
+async function processThumbnailQueue() {
+  if (isProcessingQueue) return;
+  isProcessingQueue = true;
+
+  while (thumbnailQueue.length > 0) {
+    const task = thumbnailQueue.shift();
+    const { img, preview, src, renderId } = task;
+
+    if (renderId !== currentRenderId || !document.contains(preview)) continue;
+
+    await new Promise((resolve) => {
+      img.onload = () => resolve();
+      img.onerror = () => resolve();
+      img.src = src;
+      setTimeout(resolve, 5000);
+    });
+
+    img.classList.add('is-loaded');
+  }
+
+  isProcessingQueue = false;
+}
+
+window.addEventListener('scroll', () => {
+  localStorage.setItem('scrollY', window.scrollY);
+}, { passive: true });
+
 function renderFileList(files, container) {
+  const renderId = ++currentRenderId;
+  thumbnailQueue = [];
+
   const template = document.getElementById('file-card-template');
   const emptyState = document.getElementById('empty-state');
   container.innerHTML = '';
@@ -324,11 +358,9 @@ function renderFileList(files, container) {
     return;
   }
 
-  files.forEach((file, index) => {
+  files.forEach((file) => {
     const clone = template.content.cloneNode(true);
     const card = clone.querySelector('.file-card');
-
-    card.style.setProperty('--i', index);
 
     card.dataset.fileId = file.id;
     card.dataset.fileName = file.alias;
@@ -337,17 +369,29 @@ function renderFileList(files, container) {
     card.dataset.uploaded = file.uploaded_at;
 
     const preview = card.querySelector('.file-preview');
+
     if (file.mime && file.mime.startsWith('image/')) {
       const img = document.createElement('img');
       img.alt = file.display_name;
       img.loading = 'lazy';
-      img.addEventListener('load', () => img.classList.add('is-loaded'));
-      img.src = `/files/${file.id}/thumbnail`;
+
       preview.appendChild(img);
+
+      thumbnailQueue.push({
+        img,
+        preview,
+        src: `/files/${file.id}/thumbnail`,
+        renderId
+      });
+
     } else {
-      if (!file.mime || !file.mime.startsWith('image/')) {
-        preview.remove();
-      }
+      preview.classList.add('is-icon');
+      preview.innerHTML = `
+        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"></path>
+          <polyline points="14 2 14 8 20 8"></polyline>
+        </svg>
+      `;
     }
 
     card.querySelector('.file-name').textContent = file.display_name;
@@ -363,6 +407,12 @@ function renderFileList(files, container) {
   });
 
   setupAnimations();
+
+  const savedScroll = localStorage.getItem('scrollY');
+  if (savedScroll) {
+    window.scrollTo(0, parseInt(savedScroll));
+  }
+  processThumbnailQueue();
 }
 
 async function fetchFiles() {
@@ -464,7 +514,6 @@ function setupDeleteModal() {
         method: "DELETE"
       });
       if (!res.ok) {
-        // Try to parse error message
         try {
           const payload = await res.json();
           alert(payload.error || "Delete failed.");
@@ -612,7 +661,40 @@ setupFilters();
 setupDeleteModal();
 setupRenameModal();
 setupAnimations();
+function setupViewToggle() {
+  const toggleBtn = document.getElementById("view-toggle");
+  const list = document.getElementById("file-list");
+  const iconList = document.getElementById("icon-list");
+  const iconGrid = document.getElementById("icon-grid");
+
+  if (!toggleBtn || !list) return;
+
+  const setView = (mode) => {
+    if (mode === "grid") {
+      list.classList.add("grid-view");
+      iconList.hidden = true;
+      iconGrid.hidden = false;
+    } else {
+      list.classList.remove("grid-view");
+      iconList.hidden = false;
+      iconGrid.hidden = true;
+    }
+    localStorage.setItem("viewMode", mode);
+  };
+
+  const savedMode = localStorage.getItem("viewMode");
+  if (savedMode) {
+    setView(savedMode);
+  }
+
+  toggleBtn.addEventListener("click", () => {
+    const isGrid = list.classList.contains("grid-view");
+    setView(isGrid ? "list" : "grid");
+  });
+}
+
 setupSettingsPopup();
+setupViewToggle();
 if (document.getElementById('file-list')) {
   fetchFiles();
 }

@@ -1,7 +1,7 @@
 :root {
   --bg: #090b11;
   --panel: #090b11;
-  --panel-alt: #0a0d14;
+  --panel-alt: #0d111a;
   --text: #f1f5f9;
   --muted: #94a3b8;
   --accent: #172449;
@@ -326,7 +326,7 @@ select:focus {
   border-radius: 12px;
   padding: 40px;
   text-align: center;
-  background: var(--panel-alt);
+  background: var(--panel);
   transition: all 0.2s ease;
   cursor: pointer;
   min-height: 240px;
@@ -347,8 +347,7 @@ select:focus {
 
 .drop-zone:hover,
 .drop-zone.is-dragging {
-  border-color: var(--accent);
-  background: rgba(59, 130, 246, 0.05);
+  background: var(--panel-alt);
 }
 
 .drop-title {
@@ -397,6 +396,7 @@ select:focus {
 .filter-group {
   display: flex;
   gap: 12px;
+  align-items: center;
 }
 
 .filter-group select {
@@ -430,7 +430,7 @@ select:focus {
 
 .storage-fill {
   height: 100%;
-  background-color: var(--accent-hover);
+  background-color: #172449;
   border-radius: 4px;
 }
 
@@ -475,6 +475,14 @@ select:focus {
   background: linear-gradient(90deg, var(--bg) 25%, var(--panel-alt) 50%, var(--bg) 75%);
   background-size: 200% 100%;
   animation: shimmer 1.5s infinite;
+}
+
+.file-preview.is-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  animation: none;
+  background: var(--panel-alt);
 }
 
 .file-preview img {
@@ -732,5 +740,80 @@ select:focus {
 .file-card.appearing {
   opacity: 0;
   animation: fadeInUp 0.5s ease forwards;
-  animation-delay: calc(var(--i) * 0.07s);
+}
+
+.file-list.grid-view {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 20px;
+}
+
+.file-list.grid-view .file-card {
+  flex-direction: column;
+  align-items: flex-start;
+  padding: 16px;
+  height: 100%;
+}
+
+.file-list.grid-view .file-main {
+  flex-direction: column;
+  align-items: flex-start;
+  width: 100%;
+  gap: 12px;
+}
+
+.file-list.grid-view .file-preview {
+  width: 100%;
+  height: 140px;
+  margin-bottom: 4px;
+}
+
+.file-list.grid-view .file-preview.is-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--border-soft);
+}
+
+.file-list.grid-view .file-preview.is-icon svg {
+  width: 48px;
+  height: 48px;
+  color: var(--muted);
+  stroke-width: 1;
+}
+
+.file-list.grid-view .file-preview img {
+  height: 100%;
+  object-fit: cover;
+}
+
+.file-list.grid-view .file-details {
+  width: 100%;
+}
+
+.file-list.grid-view .file-name {
+  white-space: default;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  line-height: 1.3;
+  margin-bottom: 4px;
+}
+
+.file-list.grid-view .file-actions {
+  width: 100%;
+  margin-top: auto;
+  padding-top: 12px;
+  border-top: 1px solid var(--border-soft);
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.file-list.grid-view .file-actions .btn {
+  flex: 1;
+  padding: 8px 4px;
+  min-width: 0;
+  font-size: 0.8rem;
 }

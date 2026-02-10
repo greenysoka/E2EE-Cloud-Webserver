@@ -117,7 +117,7 @@ TOTP_WINDOW = int(CFG["totp_valid_window"])
 
 app = Flask(__name__, static_folder="static", template_folder="templates")
 app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1, x_prefix=1)
-limiter = Limiter(get_remote_address, app=app, default_limits=["200 per day", "50 per hour"])
+limiter = Limiter(get_remote_address, app=app, default_limits=["2000 per day", "500 per hour"])
 
 load_env_file()
 
@@ -428,7 +428,7 @@ def unlock():
 
 
 @app.post("/unlock")
-@limiter.limit("5 per minute")
+@limiter.limit("20 per minute")
 def unlock_post():
     data = request.get_json(silent=True) or request.form
     hpw = (data.get("hpw") or "").strip()
@@ -554,7 +554,7 @@ def totp_qr():
 
 
 @app.post("/upload")
-@limiter.limit("10 per minute")
+@limiter.limit("60 per minute")
 def upload():
     require_unlocked()
     if "file" not in request.files:
