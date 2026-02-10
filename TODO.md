@@ -5,9 +5,11 @@
 - [x] Add options for different themes
 - [x] Improve the Upload timestamp
 - [x] Add a grid view
+- [x] Encrypt files client sided (if possible)
+- [ ] Add vault settings to popup in main page
+- [ ] Add a preview popup for images when thumbnail is clicked
 - [ ] Replace Google Fonts with local fonts
 - [ ] Improve login window
-- [ ] Encrypt files client sided (if possible)
 - [ ] Add folders
 - [ ] Support Autofill for login (Proton doesn't work :sob:)
 - [ ] API Access to support 3rd party apps

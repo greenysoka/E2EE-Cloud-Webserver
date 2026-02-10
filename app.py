@@ -1,7 +1,6 @@
 import base64
 import io
 import json
-import mimetypes
 import os
 import secrets
 import uuid
@@ -10,8 +9,6 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 from flask import Flask, abort, jsonify, redirect, render_template, request, send_file, session, url_for
-from werkzeug.utils import secure_filename
-from PIL import Image
 
 
 
@@ -129,7 +126,7 @@ if not secret_key or secret_key == "change-me-please":
 
 app.config.update(
     SECRET_KEY=secret_key,
-    MAX_CONTENT_LENGTH=CFG["max_upload_mb"] * 1024 * 1024,
+    MAX_CONTENT_LENGTH=int(CFG["max_upload_mb"] * 1024 * 1024 * 1.4),
     SESSION_TYPE="filesystem",
     SESSION_FILE_DIR=SESSION_DIR,
     SESSION_PERMANENT=True,
@@ -148,7 +145,7 @@ def add_security_headers(resp):
     resp.headers["X-Content-Type-Options"] = "nosniff"
     resp.headers["X-Frame-Options"] = "DENY"
 
-    resp.headers["Content-Security-Policy"] = "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:;"
+    resp.headers["Content-Security-Policy"] = "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob:;"
     if CFG["secure_cookies"]:
         resp.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
     return resp
@@ -459,6 +456,10 @@ def unlock_post():
                 if custom_config:
                     ensure_storage()
                     CUSTOM_CONFIG_PATH.write_text(json.dumps(custom_config, indent=2), encoding="utf-8")
+                    for k, v in custom_config.items():
+                        if k in CFG:
+                            CFG[k] = type(CFG[k])(v)
+                    app.config["MAX_CONTENT_LENGTH"] = int(CFG["max_upload_mb"] * 1024 * 1024 * 1.4)
             except (ValueError, TypeError):
                  pass
 
@@ -557,18 +558,24 @@ def totp_qr():
 @limiter.limit("60 per minute")
 def upload():
     require_unlocked()
-    if "file" not in request.files:
-        return jsonify({"ok": False, "error": "No file uploaded"}), 400
-    file = request.files["file"]
-    if not file or not file.filename:
+    data = request.get_json(silent=True)
+    if not data or "data" not in data:
+        return jsonify({"ok": False, "error": "No file data"}), 400
+
+    original_name = (data.get("name") or "").strip()
+    if not original_name:
         return jsonify({"ok": False, "error": "Missing filename"}), 400
 
-    original_name = file.filename
-    safe_name = secure_filename(original_name) or f"file-{uuid.uuid4().hex}"
-    data = file.read()
-    if not data:
+    try:
+        encrypted_blob = base64.b64decode(data["data"])
+    except Exception:
+        return jsonify({"ok": False, "error": "Invalid file data"}), 400
+
+    if not encrypted_blob:
         return jsonify({"ok": False, "error": "Empty file"}), 400
 
+    plaintext_size = int(data.get("size") or 0)
+    mime_type = data.get("mime") or "application/octet-stream"
     hpw = session["hpw"]
 
     with FileLock(LOCK_PATH):
@@ -576,26 +583,23 @@ def upload():
             items = load_metadata(hpw)
         except ValueError:
             return jsonify({"ok": False, "error": "Vault locked"}), 403
-        
 
         used_bytes = compute_storage_usage(items)
         if CFG["max_storage_mb"]:
-             total_bytes = CFG["max_storage_mb"] * 1024 * 1024
-             if used_bytes + len(data) > total_bytes:
-                 return jsonify({"ok": False, "error": "Storage limit reached"}), 413
-        
-        encrypted_blob = encrypt_bytes(hpw, data)
+            total_bytes = CFG["max_storage_mb"] * 1024 * 1024
+            if used_bytes + plaintext_size > total_bytes:
+                return jsonify({"ok": False, "error": "Storage limit reached"}), 413
+
         file_id = uuid.uuid4().hex
         alias = f"vault-{secrets.token_hex(4)}"
         blob_path = STORAGE_DIR / f"{file_id}.bin"
         blob_path.write_bytes(encrypted_blob)
 
-        mime_type = file.mimetype or mimetypes.guess_type(safe_name)[0] or "application/octet-stream"
         meta = {
             "id": file_id,
             "alias": alias,
             "mime": mime_type,
-            "size": len(data),
+            "size": plaintext_size,
             "uploaded_at": datetime.now(timezone.utc).isoformat(timespec="seconds").replace("+00:00", "Z"),
         }
         if METADATA_ENCRYPTED:
@@ -623,61 +627,11 @@ def view_file(file_id: str):
     if not blob_path.exists():
         abort(404)
 
-    try:
-        plaintext = decrypt_bytes(hpw, blob_path.read_bytes())
-    except Exception:
-        abort(403)
-
-    as_attachment = request.args.get("download") == "1"
-    response = send_file(
-        io.BytesIO(plaintext),
-        mimetype=meta.get("mime", "application/octet-stream"),
-        as_attachment=as_attachment,
-        download_name=resolve_download_name(meta, hpw),
+    return send_file(
+        blob_path,
+        mimetype="application/octet-stream",
+        as_attachment=False,
     )
-    return response
-
-
-@app.get("/files/<file_id>/thumbnail")
-def view_thumbnail(file_id: str):
-    require_unlocked()
-    hpw = session["hpw"]
-    try:
-        items = load_metadata(hpw)
-    except ValueError:
-        abort(403)
-    meta = next((m for m in items if m.get("id") == file_id), None)
-    if not meta:
-        abort(404)
-
-    blob_path = STORAGE_DIR / f"{file_id}.bin"
-    if not blob_path.exists():
-        abort(404)
-
-    try:
-        plaintext = decrypt_bytes(hpw, blob_path.read_bytes())
-    except Exception:
-        abort(403)
-
-    try:
-        img = Image.open(io.BytesIO(plaintext))
-        img.thumbnail((200, 200))
-
-        if img.mode in ("RGBA", "P"):
-            img = img.convert("RGB")
-            
-        thumb_io = io.BytesIO()
-        img.save(thumb_io, "JPEG", quality=85)
-        thumb_io.seek(0)
-        
-        return send_file(
-            thumb_io,
-            mimetype="image/jpeg",
-            as_attachment=False,
-            download_name=f"thumb_{resolve_download_name(meta, hpw)}.jpg"
-        )
-    except Exception:
-        abort(404)
 
 
 @app.delete("/files/<file_id>")

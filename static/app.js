@@ -5,6 +5,68 @@ async function sha256Hex(message) {
   return hashArray.map((b) => b.toString(16).padStart(2, "0")).join("");
 }
 
+function hexToBytes(hex) {
+  const bytes = new Uint8Array(hex.length / 2);
+  for (let i = 0; i < hex.length; i += 2) {
+    bytes[i / 2] = parseInt(hex.substr(i, 2), 16);
+  }
+  return bytes;
+}
+
+async function deriveKey(hpwHex, salt) {
+  const hpwBytes = hexToBytes(hpwHex);
+  const keyMaterial = await crypto.subtle.importKey(
+    "raw", hpwBytes, "PBKDF2", false, ["deriveKey"]
+  );
+  return crypto.subtle.deriveKey(
+    { name: "PBKDF2", salt: salt, iterations: 600000, hash: "SHA-256" },
+    keyMaterial,
+    { name: "AES-GCM", length: 256 },
+    false,
+    ["encrypt", "decrypt"]
+  );
+}
+
+async function encryptFile(hpwHex, plaintext) {
+  const salt = crypto.getRandomValues(new Uint8Array(16));
+  const nonce = crypto.getRandomValues(new Uint8Array(12));
+  const key = await deriveKey(hpwHex, salt);
+  const ciphertext = await crypto.subtle.encrypt(
+    { name: "AES-GCM", iv: nonce }, key, plaintext
+  );
+  const result = new Uint8Array(salt.length + nonce.length + ciphertext.byteLength);
+  result.set(salt, 0);
+  result.set(nonce, salt.length);
+  result.set(new Uint8Array(ciphertext), salt.length + nonce.length);
+  return result.buffer;
+}
+
+async function decryptFile(hpwHex, blob) {
+  const data = new Uint8Array(blob);
+  if (data.length < 28) throw new Error("Corrupted ciphertext");
+  const salt = data.slice(0, 16);
+  const nonce = data.slice(16, 28);
+  const ciphertext = data.slice(28);
+  const key = await deriveKey(hpwHex, salt);
+  return crypto.subtle.decrypt(
+    { name: "AES-GCM", iv: nonce }, key, ciphertext
+  );
+}
+
+function arrayBufferToBase64(buffer) {
+  const bytes = new Uint8Array(buffer);
+  let binary = '';
+  const chunkSize = 8192;
+  for (let i = 0; i < bytes.length; i += chunkSize) {
+    binary += String.fromCharCode.apply(null, bytes.subarray(i, i + chunkSize));
+  }
+  return btoa(binary);
+}
+
+function getHpw() {
+  return sessionStorage.getItem('hpw') || '';
+}
+
 const formatSize = (bytes) => {
   if (bytes === 0) return '0 B';
   const k = 1024;
@@ -119,6 +181,7 @@ async function handleUnlock() {
         setHint(errorEl, msg, true);
         return;
       }
+      sessionStorage.setItem('hpw', hpw);
       window.location.href = "/";
     } catch (err) {
       setHint(errorEl, "Unlock failed. Try again.", true);
@@ -134,11 +197,27 @@ function setupDropZone() {
 
   const uploadFile = async (file) => {
     if (!file) return;
-    setHint(statusEl, `Encrypting and uploading ${file.name}...`);
-    const formData = new FormData();
-    formData.append("file", file);
+    const hpw = getHpw();
+    if (!hpw) {
+      setHint(statusEl, "Session expired. Please unlock again.", true);
+      return;
+    }
+    setHint(statusEl, `Encrypting ${file.name}...`);
     try {
-      const res = await fetch("/upload", { method: "POST", body: formData });
+      const plaintext = await file.arrayBuffer();
+      const encrypted = await encryptFile(hpw, plaintext);
+      const b64 = arrayBufferToBase64(encrypted);
+      setHint(statusEl, `Uploading ${file.name}...`);
+      const res = await fetch("/upload", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          data: b64,
+          name: file.name,
+          mime: file.type || "application/octet-stream",
+          size: plaintext.byteLength
+        })
+      });
       const payload = await res.json();
       if (!res.ok || !payload.ok) {
         setHint(statusEl, payload.error || "Upload failed", true);
@@ -193,6 +272,7 @@ function setupLockButton() {
   const lockBtn = document.getElementById("lock-btn");
   if (!lockBtn) return;
   lockBtn.addEventListener("click", async () => {
+    sessionStorage.removeItem('hpw');
     await fetch("/logout", { method: "POST" });
     window.location.href = "/unlock";
   });
@@ -323,18 +403,50 @@ async function processThumbnailQueue() {
   if (isProcessingQueue) return;
   isProcessingQueue = true;
 
+  const hpw = getHpw();
+
   while (thumbnailQueue.length > 0) {
     const task = thumbnailQueue.shift();
-    const { img, preview, src, renderId } = task;
+    const { img, preview, fileId, renderId } = task;
 
     if (renderId !== currentRenderId || !document.contains(preview)) continue;
 
-    await new Promise((resolve) => {
-      img.onload = () => resolve();
-      img.onerror = () => resolve();
-      img.src = src;
-      setTimeout(resolve, 5000);
-    });
+    if (!hpw) {
+      img.classList.add('is-loaded');
+      continue;
+    }
+
+    try {
+      const res = await fetch(`/files/${fileId}`);
+      if (!res.ok) throw new Error('Fetch failed');
+      const encryptedBuf = await res.arrayBuffer();
+      const decrypted = await decryptFile(hpw, encryptedBuf);
+
+      const blob = new Blob([decrypted]);
+      const bitmap = await createImageBitmap(blob);
+      const maxDim = 200;
+      let w = bitmap.width;
+      let h = bitmap.height;
+      if (w > maxDim || h > maxDim) {
+        const scale = Math.min(maxDim / w, maxDim / h);
+        w = Math.round(w * scale);
+        h = Math.round(h * scale);
+      }
+      const canvas = document.createElement('canvas');
+      canvas.width = w;
+      canvas.height = h;
+      const ctx = canvas.getContext('2d');
+      ctx.drawImage(bitmap, 0, 0, w, h);
+      bitmap.close();
+
+      img.src = canvas.toDataURL('image/jpeg', 0.85);
+      await new Promise((resolve) => {
+        img.onload = resolve;
+        img.onerror = resolve;
+        setTimeout(resolve, 3000);
+      });
+    } catch (e) {
+    }
 
     img.classList.add('is-loaded');
   }
@@ -380,7 +492,7 @@ function renderFileList(files, container) {
       thumbnailQueue.push({
         img,
         preview,
-        src: `/files/${file.id}/thumbnail`,
+        fileId: file.id,
         renderId
       });
 
@@ -401,7 +513,31 @@ function renderFileList(files, container) {
     card.querySelector('.uploaded-at').textContent = 'Uploaded ' + formatDate(file.uploaded_at);
 
     const downloadBtn = card.querySelector('.download-btn');
-    downloadBtn.href = `/files/${file.id}?download=1`;
+    downloadBtn.removeAttribute('href');
+    downloadBtn.style.cursor = 'pointer';
+    downloadBtn.addEventListener('click', async (e) => {
+      e.preventDefault();
+      const hpw = getHpw();
+      if (!hpw) { alert('Session expired. Please unlock again.'); return; }
+      try {
+        const res = await fetch(`/files/${file.id}`);
+        if (!res.ok) throw new Error('Download failed');
+        const encryptedBuf = await res.arrayBuffer();
+        const decrypted = await decryptFile(hpw, encryptedBuf);
+        const blob = new Blob([decrypted], { type: file.mime || 'application/octet-stream' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = file.display_name || file.alias || 'file';
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+      } catch (err) {
+        console.error(err);
+        alert('Download or decryption failed.');
+      }
+    });
 
     container.appendChild(clone);
   });
