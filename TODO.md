@@ -7,10 +7,15 @@
 - [x] Add a grid view
 - [x] Encrypt files client sided (if possible)
 - [x] Support Autofill for login (Proton doesn't work :sob:)
+- [x] Improve login window
+- [x] Support for multiple files upload
 - [ ] Add vault settings to popup in main page
 - [ ] Add a preview popup for images when thumbnail is clicked
-- [ ] Support for multiple files upload
+- [ ] Add naming functionality for vaults
+- [ ] Add multple delete functionality
+- [ ] Add a share button for files
+- [ ] Add caching functionality to frontend
+- [ ] Add percentage display for used storage
 - [ ] Replace Google Fonts with local fonts
-- [x] Improve login window
 - [ ] Add folders
 - [ ] API Access to support 3rd party apps

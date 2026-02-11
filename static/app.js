@@ -242,8 +242,39 @@ async function handleSetup() {
 function setupDropZone() {
   const dropZone = document.getElementById("drop-zone");
   const input = document.getElementById("file-input");
-  const statusEl = document.getElementById("upload-status");
+  const queueEl = document.getElementById("upload-queue");
   if (!dropZone || !input) return;
+
+  const createUploadItem = (file) => {
+    const item = document.createElement("div");
+    item.className = "upload-item";
+    item.innerHTML = `
+      <div class="upload-info">
+        <div class="upload-header">
+          <div class="upload-name">${file.name}</div>
+          <div class="upload-pct">0%</div>
+        </div>
+        <div class="progress-track">
+          <div class="progress-bar"></div>
+        </div>
+      </div>
+    `;
+    queueEl.appendChild(item);
+    return item;
+  };
+
+  const updateItem = (item, pct, isError = false, isSuccess = false) => {
+    const bar = item.querySelector(".progress-bar");
+    const label = item.querySelector(".upload-pct");
+    if (bar) bar.style.width = `${pct}%`;
+    if (label) {
+      if (isError) label.textContent = "Error";
+      else if (isSuccess) label.textContent = "Done";
+      else label.textContent = `${Math.round(pct)}%`;
+    }
+    if (isError) item.classList.add("error");
+    if (isSuccess) item.classList.add("success");
+  };
 
   const uploadFile = async (file) => {
     if (!file) return;
@@ -252,31 +283,63 @@ function setupDropZone() {
       window.location.href = "/login";
       return;
     }
-    setHint(statusEl, `Encrypting ${file.name}...`);
+
+    const item = createUploadItem(file);
+    updateItem(item, 0);
+
+    const encryptProgress = (p) => updateItem(item, p * 0.3);
+
     try {
+      encryptProgress(10);
       const plaintext = await file.arrayBuffer();
+      encryptProgress(50);
       const encrypted = await encryptFile(hpw, plaintext);
+      encryptProgress(100);
+
       const b64 = arrayBufferToBase64(encrypted);
-      setHint(statusEl, `Uploading ${file.name}...`);
-      const res = await fetch("/upload", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          data: b64,
-          name: file.name,
-          mime: file.type || "application/octet-stream",
-          size: plaintext.byteLength
-        })
-      });
-      const payload = await res.json();
-      if (!res.ok || !payload.ok) {
-        setHint(statusEl, payload.error || "Upload failed", true);
-        return;
-      }
-      setHint(statusEl, "Upload complete.");
-      window.location.reload();
+
+      const xhr = new XMLHttpRequest();
+      xhr.open("POST", "/upload");
+      xhr.setRequestHeader("Content-Type", "application/json");
+
+      xhr.upload.onprogress = (e) => {
+        if (e.lengthComputable) {
+          const percentComplete = (e.loaded / e.total) * 70 + 30;
+          updateItem(item, percentComplete);
+        }
+      };
+
+      xhr.onload = () => {
+        if (xhr.status >= 200 && xhr.status < 300) {
+          const payload = JSON.parse(xhr.responseText);
+          if (payload.ok) {
+            updateItem(item, 100, false, true);
+            setTimeout(() => {
+              window.location.reload();
+            }, 1000);
+          } else {
+            updateItem(item, 100, true);
+            console.error(payload.error);
+          }
+        } else {
+          updateItem(item, 100, true);
+        }
+      };
+
+      xhr.onerror = () => {
+        updateItem(item, 100, true);
+      };
+
+      xhr.send(JSON.stringify({
+        data: b64,
+        name: file.name,
+        mime: file.type || "application/octet-stream",
+        size: plaintext.byteLength
+      }));
+
     } catch (err) {
-      setHint(statusEl, "Upload failed. Try again.", true);
+      updateItem(item, 0, true);
+      console.error(err);
     }
   };
 
@@ -288,8 +351,8 @@ function setupDropZone() {
     event.stopPropagation();
   });
   input.addEventListener("change", () => {
-    if (input.files && input.files[0]) {
-      uploadFile(input.files[0]);
+    if (input.files && input.files.length > 0) {
+      Array.from(input.files).forEach(uploadFile);
       input.value = "";
     }
   });
@@ -311,9 +374,9 @@ function setupDropZone() {
   });
 
   dropZone.addEventListener("drop", (event) => {
-    const file = event.dataTransfer.files[0];
-    if (file) {
-      uploadFile(file);
+    const files = event.dataTransfer.files;
+    if (files && files.length > 0) {
+      Array.from(files).forEach(uploadFile);
     }
   });
 }

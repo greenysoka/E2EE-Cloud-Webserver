@@ -610,22 +610,28 @@ def upload():
     mime_type = data.get("mime") or "application/octet-stream"
     hpw = session["hpw"]
 
+    file_id = uuid.uuid4().hex
+    alias = f"vault-{secrets.token_hex(4)}"
+    blob_path = STORAGE_DIR / f"{file_id}.bin"
+    
+    try:
+        blob_path.write_bytes(encrypted_blob)
+    except OSError:
+         return jsonify({"ok": False, "error": "Write failed"}), 500
+
     with FileLock(LOCK_PATH):
         try:
             items = load_metadata(hpw)
         except ValueError:
+            blob_path.unlink(missing_ok=True)
             return jsonify({"ok": False, "error": "Vault locked"}), 403
 
         used_bytes = compute_storage_usage(items)
         if CFG["max_storage_mb"]:
             total_bytes = CFG["max_storage_mb"] * 1024 * 1024
             if used_bytes + plaintext_size > total_bytes:
+                blob_path.unlink(missing_ok=True)
                 return jsonify({"ok": False, "error": "Storage limit reached"}), 413
-
-        file_id = uuid.uuid4().hex
-        alias = f"vault-{secrets.token_hex(4)}"
-        blob_path = STORAGE_DIR / f"{file_id}.bin"
-        blob_path.write_bytes(encrypted_blob)
 
         meta = {
             "id": file_id,
