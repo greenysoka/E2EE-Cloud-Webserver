@@ -336,6 +336,8 @@ function setupDropZone() {
   const queueEl = document.getElementById("upload-queue");
   if (!dropZone || !input) return;
 
+  let activeUploads = 0;
+
   const createUploadItem = (file) => {
     const item = document.createElement("div");
     item.className = "upload-item";
@@ -426,7 +428,6 @@ function setupDropZone() {
     if (!completeData.ok) throw new Error(completeData.error || "Complete failed");
 
     updateItem(item, 100, false, true);
-    setTimeout(() => { window.location.reload(); }, 1000);
   };
 
   const uploadFileSingle = (file, item, encryptedBytes, plaintextSize) => {
@@ -453,7 +454,6 @@ function setupDropZone() {
           const payload = JSON.parse(xhr.responseText);
           if (payload.ok) {
             updateItem(item, 100, false, true);
-            setTimeout(() => { window.location.reload(); }, 1000);
             resolve();
           } else {
             updateItem(item, 100, true, false, payload.error);
@@ -489,6 +489,7 @@ function setupDropZone() {
       return;
     }
 
+    activeUploads++;
     const item = createUploadItem(file);
     updateItem(item, 0);
 
@@ -512,6 +513,11 @@ function setupDropZone() {
     } catch (err) {
       updateItem(item, 0, true, false, err.message || "Upload failed");
       console.error(err);
+    } finally {
+      activeUploads--;
+      if (activeUploads === 0) {
+        setTimeout(() => { window.location.reload(); }, 1000);
+      }
     }
   };
 
