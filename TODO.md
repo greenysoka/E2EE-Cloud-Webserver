@@ -11,6 +11,6 @@
 - [ ] Add a preview popup for images when thumbnail is clicked
 - [ ] Support for multiple files upload
 - [ ] Replace Google Fonts with local fonts
-- [ ] Improve login window
+- [x] Improve login window
 - [ ] Add folders
 - [ ] API Access to support 3rd party apps

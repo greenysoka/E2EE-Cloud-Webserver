@@ -64,7 +64,7 @@ function arrayBufferToBase64(buffer) {
 }
 
 function getHpw() {
-  return sessionStorage.getItem('hpw') || '';
+  return localStorage.getItem('hpw') || '';
 }
 
 const formatSize = (bytes) => {
@@ -94,6 +94,7 @@ async function handleLogin() {
   const passwordInput = document.getElementById("password");
   const totpInput = document.getElementById("totp-code");
   const errorEl = document.getElementById("login-error");
+  const loginBtn = document.getElementById("login-cta");
 
   form.addEventListener("submit", async (event) => {
     event.preventDefault();
@@ -107,7 +108,10 @@ async function handleLogin() {
       setHint(errorEl, "Enter your authenticator code.", true);
       return;
     }
-    setHint(errorEl, "Unlocking...");
+    if (loginBtn) {
+      loginBtn.textContent = "Unlocking...";
+      loginBtn.disabled = true;
+    }
     try {
       const hpw = await sha256Hex(password);
       const res = await fetch("/login", {
@@ -122,12 +126,20 @@ async function handleLogin() {
           msg += ` (Clock drift ~${payload.drift_sec}s)`;
         }
         setHint(errorEl, msg, true);
+        if (loginBtn) {
+          loginBtn.textContent = "Unlock";
+          loginBtn.disabled = false;
+        }
         return;
       }
-      sessionStorage.setItem('hpw', hpw);
+      localStorage.setItem('hpw', hpw);
       window.location.href = "/";
     } catch (err) {
       setHint(errorEl, "Login failed. Try again.", true);
+      if (loginBtn) {
+        loginBtn.textContent = "Unlock";
+        loginBtn.disabled = false;
+      }
     }
   });
 }
@@ -219,7 +231,7 @@ async function handleSetup() {
         setHint(errorEl, msg, true);
         return;
       }
-      sessionStorage.setItem('hpw', hpw);
+      localStorage.setItem('hpw', hpw);
       window.location.href = "/";
     } catch (err) {
       setHint(errorEl, "Setup failed. Try again.", true);
@@ -237,7 +249,7 @@ function setupDropZone() {
     if (!file) return;
     const hpw = getHpw();
     if (!hpw) {
-      setHint(statusEl, "Session expired. Please unlock again.", true);
+      window.location.href = "/login";
       return;
     }
     setHint(statusEl, `Encrypting ${file.name}...`);
@@ -310,7 +322,7 @@ function setupLockButton() {
   const lockBtn = document.getElementById("lock-btn");
   if (!lockBtn) return;
   lockBtn.addEventListener("click", async () => {
-    sessionStorage.removeItem('hpw');
+    localStorage.removeItem('hpw');
     await fetch("/logout", { method: "POST" });
     window.location.href = "/login";
   });
@@ -450,12 +462,14 @@ async function processThumbnailQueue() {
     if (renderId !== currentRenderId || !document.contains(preview)) continue;
 
     if (!hpw) {
-      img.classList.add('is-loaded');
-      continue;
+      localStorage.removeItem('hpw');
+      window.location.href = '/login';
+      return;
     }
 
     try {
       const res = await fetch(`/files/${fileId}`);
+      if (res.status === 401) { localStorage.removeItem('hpw'); window.location.href = '/login'; return; }
       if (!res.ok) throw new Error('Fetch failed');
       const encryptedBuf = await res.arrayBuffer();
       const decrypted = await decryptFile(hpw, encryptedBuf);
@@ -556,9 +570,10 @@ function renderFileList(files, container) {
     downloadBtn.addEventListener('click', async (e) => {
       e.preventDefault();
       const hpw = getHpw();
-      if (!hpw) { alert('Session expired. Please unlock again.'); return; }
+      if (!hpw) { window.location.href = '/login'; return; }
       try {
         const res = await fetch(`/files/${file.id}`);
+        if (res.status === 401) { localStorage.removeItem('hpw'); window.location.href = '/login'; return; }
         if (!res.ok) throw new Error('Download failed');
         const encryptedBuf = await res.arrayBuffer();
         const decrypted = await decryptFile(hpw, encryptedBuf);
@@ -597,6 +612,7 @@ async function fetchFiles() {
 
   try {
     const res = await fetch('/api/files');
+    if (res.status === 401) { localStorage.removeItem('hpw'); window.location.href = '/login'; return; }
     if (!res.ok) throw new Error('Failed to load files');
     const data = await res.json();
 
