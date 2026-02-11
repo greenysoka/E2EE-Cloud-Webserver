@@ -796,6 +796,7 @@ function renderFileList(files, container) {
     card.dataset.displayName = file.display_name;
     card.dataset.size = file.size;
     card.dataset.uploaded = file.uploaded_at;
+    card.dataset.fileMime = file.mime || "";
 
     const preview = card.querySelector('.file-preview');
 
@@ -1063,6 +1064,132 @@ function setupRenameModal() {
   });
 }
 
+function setupImagePreviewModal() {
+  const modal = document.getElementById("image-preview-modal");
+  if (!modal) return;
+
+  const closeBtn = document.getElementById("close-image-preview");
+  const titleEl = document.getElementById("image-preview-title");
+  const hintEl = document.getElementById("image-preview-hint");
+  const imageEl = document.getElementById("image-preview-img");
+  let currentObjectUrl = null;
+  let requestVersion = 0;
+
+  const revokeImageUrl = () => {
+    if (!currentObjectUrl) return;
+    URL.revokeObjectURL(currentObjectUrl);
+    currentObjectUrl = null;
+  };
+
+  const setLoadingState = (message = "Loading preview...", isError = false) => {
+    if (hintEl) {
+      hintEl.textContent = message;
+      hintEl.hidden = !message;
+      hintEl.classList.toggle("error", isError);
+    }
+    if (imageEl) {
+      imageEl.hidden = true;
+      imageEl.removeAttribute("src");
+    }
+    revokeImageUrl();
+  };
+
+  const closeModal = () => {
+    requestVersion += 1;
+    modal.classList.remove("is-open");
+    modal.setAttribute("aria-hidden", "true");
+    setLoadingState("Loading preview...");
+  };
+
+  const openModal = (name) => {
+    modal.classList.add("is-open");
+    modal.setAttribute("aria-hidden", "false");
+    if (titleEl) titleEl.textContent = name || "Image Preview";
+    setLoadingState("Loading preview...");
+  };
+
+  const openImageFromCard = async (card) => {
+    const fileId = card?.dataset?.fileId;
+    if (!fileId) return;
+
+    const fileName = card.dataset.displayName || card.dataset.fileName || "Image Preview";
+    const mime = card.dataset.fileMime || "application/octet-stream";
+    openModal(fileName);
+
+    const hpw = getHpw();
+    if (!hpw) {
+      localStorage.removeItem("hpw");
+      window.location.href = "/login";
+      return;
+    }
+
+    const thisRequest = ++requestVersion;
+
+    try {
+      const res = await fetch(`/files/${fileId}`);
+      if (res.status === 401) {
+        localStorage.removeItem("hpw");
+        window.location.href = "/login";
+        return;
+      }
+      if (!res.ok) throw new Error("Fetch failed");
+
+      const encryptedBuf = await res.arrayBuffer();
+      const decrypted = await decryptFile(hpw, encryptedBuf);
+      if (thisRequest !== requestVersion) return;
+
+      const blob = new Blob([decrypted], { type: mime });
+      const objectUrl = URL.createObjectURL(blob);
+      revokeImageUrl();
+      currentObjectUrl = objectUrl;
+
+      if (imageEl) {
+        imageEl.src = objectUrl;
+        imageEl.alt = fileName;
+        imageEl.hidden = false;
+      }
+      if (hintEl) {
+        hintEl.hidden = true;
+        hintEl.classList.remove("error");
+      }
+    } catch (err) {
+      if (thisRequest !== requestVersion) return;
+      if (hintEl) {
+        hintEl.textContent = "Could not load image preview.";
+        hintEl.hidden = false;
+        hintEl.classList.add("error");
+      }
+    }
+  };
+
+  document.addEventListener("click", (event) => {
+    const clickedImage = event.target.closest(".file-preview img");
+    if (clickedImage) {
+      const card = clickedImage.closest(".file-card");
+      if (!card) return;
+      openImageFromCard(card);
+      return;
+    }
+
+    if (event.target.closest("#close-image-preview")) {
+      closeModal();
+      return;
+    }
+
+    if (event.target.closest("#image-preview-modal [data-close='true']")) {
+      closeModal();
+    }
+  });
+
+  document.addEventListener("keydown", (event) => {
+    if (event.key === "Escape" && modal.classList.contains("is-open")) {
+      closeModal();
+    }
+  });
+
+  closeBtn?.addEventListener("click", closeModal);
+}
+
 function setupSettingsPopup() {
   const btn = document.getElementById("settings-btn");
   const popup = document.getElementById("settings-popup");
@@ -1116,6 +1243,7 @@ setupLockButton();
 setupFilters();
 setupDeleteModal();
 setupRenameModal();
+setupImagePreviewModal();
 setupAnimations();
 function setupViewToggle() {
   const toggleBtn = document.getElementById("view-toggle");

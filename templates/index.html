@@ -2,7 +2,7 @@
 {% block content %}
 <div class="shell">
   <header class="topbar">
-    <div class="brand">Encrypted Cloud</div>
+    <div class="brand">Your Encrypted Cloud</div>
     <div class="actions">
       <button id="lock-btn" class="btn icon-btn ghost" type="button" aria-label="Lock Vault" title="Lock Vault">
         <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none"
@@ -166,6 +166,26 @@
       <div class="modal-actions">
         <button id="cancel-rename" class="btn ghost" type="button">Cancel</button>
         <button id="confirm-rename" class="btn primary" type="button">Save</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="image-preview-modal" class="modal image-preview-modal" aria-hidden="true">
+    <div class="modal-backdrop" data-close="true"></div>
+    <div class="modal-card image-preview-card" role="dialog" aria-modal="true" aria-labelledby="image-preview-title">
+      <div class="image-preview-header">
+        <p id="image-preview-title" class="image-preview-title">Image Preview</p>
+        <button id="close-image-preview" class="btn icon-btn ghost" type="button" aria-label="Close image preview" title="Close">
+          <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none"
+            stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="18" y1="6" x2="6" y2="18"></line>
+            <line x1="6" y1="6" x2="18" y2="18"></line>
+          </svg>
+        </button>
+      </div>
+      <p id="image-preview-hint" class="image-preview-hint">Loading preview...</p>
+      <div class="image-preview-frame">
+        <img id="image-preview-img" alt="Image preview" hidden />
       </div>
     </div>
   </div>
