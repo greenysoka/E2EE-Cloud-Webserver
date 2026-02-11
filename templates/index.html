@@ -58,11 +58,10 @@
     <section class="panel files">
       <div class="files-header">
         <h2>Your Files</h2>
-        <span id="file-count" class="meta">Loading...</span>
       </div>
       <div class="storage">
         <div class="storage-labels">
-          <span>Storage Used</span>
+          <span>Storage Used ({{ percent }}%)</span>
           <span>{{ used_bytes|filesizeformat(binary=True) }} / {{ total_bytes|filesizeformat(binary=True) }}</span>
         </div>
         <div class="storage-track">

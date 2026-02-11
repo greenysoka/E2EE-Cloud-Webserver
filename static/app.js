@@ -88,6 +88,18 @@ function setHint(el, message, isError = false) {
   el.classList.toggle("error", isError);
 }
 
+function updateSearchPlaceholder(totalFiles) {
+  const searchInput = document.getElementById("file-search");
+  if (!searchInput) return;
+  const count = Number(totalFiles || 0);
+  if (count <= 0) {
+    searchInput.placeholder = "Search files...";
+    return;
+  }
+  const suffix = count === 1 ? "file" : "files";
+  searchInput.placeholder = `Search in ${count} ${suffix}...`;
+}
+
 async function handleLogin() {
   const form = document.getElementById("login-form");
   if (!form) return;
@@ -511,6 +523,188 @@ function setupFilters() {
 let currentRenderId = 0;
 let thumbnailQueue = [];
 let isProcessingQueue = false;
+const THUMBNAIL_CACHE_DB = 'encrypted-cloud-thumbnail-cache';
+const THUMBNAIL_CACHE_STORE = 'thumbnails';
+const THUMBNAIL_CACHE_MAX_ENTRIES = 500;
+let thumbnailDbPromise = null;
+let thumbnailCacheUnavailable = false;
+let thumbnailPruneRunning = false;
+
+function openThumbnailCacheDb() {
+  if (thumbnailCacheUnavailable || typeof window === 'undefined' || !window.indexedDB) {
+    return Promise.resolve(null);
+  }
+  if (thumbnailDbPromise) return thumbnailDbPromise;
+
+  thumbnailDbPromise = new Promise((resolve) => {
+    const req = indexedDB.open(THUMBNAIL_CACHE_DB, 1);
+    req.onupgradeneeded = () => {
+      const db = req.result;
+      if (!db.objectStoreNames.contains(THUMBNAIL_CACHE_STORE)) {
+        const store = db.createObjectStore(THUMBNAIL_CACHE_STORE, { keyPath: 'key' });
+        store.createIndex('created_at', 'created_at', { unique: false });
+      }
+    };
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = () => {
+      thumbnailCacheUnavailable = true;
+      resolve(null);
+    };
+    req.onblocked = () => {
+      thumbnailCacheUnavailable = true;
+      resolve(null);
+    };
+  });
+
+  return thumbnailDbPromise;
+}
+
+function getThumbnailCacheKey(file, hpw) {
+  if (!file || !file.id || !hpw) return '';
+  const size = Number(file.size || 0);
+  const uploadedAt = file.uploaded_at || '';
+  const mime = file.mime || '';
+  return `${hpw}:${file.id}:${size}:${uploadedAt}:${mime}`;
+}
+
+async function getCachedThumbnail(cacheKey) {
+  if (!cacheKey) return null;
+  const db = await openThumbnailCacheDb();
+  if (!db) return null;
+
+  return new Promise((resolve) => {
+    const tx = db.transaction(THUMBNAIL_CACHE_STORE, 'readonly');
+    const store = tx.objectStore(THUMBNAIL_CACHE_STORE);
+    const req = store.get(cacheKey);
+
+    req.onsuccess = () => {
+      const record = req.result;
+      if (!record || !record.data_url) {
+        resolve(null);
+        return;
+      }
+      resolve(record.data_url);
+    };
+    req.onerror = () => resolve(null);
+  });
+}
+
+async function setCachedThumbnail(cacheKey, dataUrl) {
+  if (!cacheKey || !dataUrl) return;
+  const db = await openThumbnailCacheDb();
+  if (!db) return;
+
+  await new Promise((resolve) => {
+    const tx = db.transaction(THUMBNAIL_CACHE_STORE, 'readwrite');
+    const store = tx.objectStore(THUMBNAIL_CACHE_STORE);
+    const req = store.put({
+      key: cacheKey,
+      data_url: dataUrl,
+      created_at: Date.now(),
+    });
+    req.onsuccess = () => resolve(true);
+    req.onerror = () => resolve(false);
+  });
+}
+
+async function pruneThumbnailCache() {
+  if (thumbnailPruneRunning) return;
+  thumbnailPruneRunning = true;
+
+  try {
+    const db = await openThumbnailCacheDb();
+    if (!db) return;
+
+    const total = await new Promise((resolve) => {
+      const tx = db.transaction(THUMBNAIL_CACHE_STORE, 'readonly');
+      const store = tx.objectStore(THUMBNAIL_CACHE_STORE);
+      const req = store.count();
+      req.onsuccess = () => resolve(req.result || 0);
+      req.onerror = () => resolve(0);
+    });
+
+    const removeCount = total - THUMBNAIL_CACHE_MAX_ENTRIES;
+    if (removeCount <= 0) return;
+
+    await new Promise((resolve) => {
+      let removed = 0;
+      const tx = db.transaction(THUMBNAIL_CACHE_STORE, 'readwrite');
+      const store = tx.objectStore(THUMBNAIL_CACHE_STORE);
+      const index = store.index('created_at');
+      const cursorReq = index.openCursor();
+
+      cursorReq.onsuccess = (event) => {
+        const cursor = event.target.result;
+        if (!cursor || removed >= removeCount) {
+          resolve(true);
+          return;
+        }
+        store.delete(cursor.primaryKey);
+        removed += 1;
+        cursor.continue();
+      };
+      cursorReq.onerror = () => resolve(false);
+    });
+  } finally {
+    thumbnailPruneRunning = false;
+  }
+}
+
+async function reconcileThumbnailCache(files) {
+  if (!Array.isArray(files)) return;
+  const hpw = getHpw();
+  if (!hpw) return;
+
+  const db = await openThumbnailCacheDb();
+  if (!db) return;
+
+  const valid = new Set(
+    files
+      .filter((f) => f && f.mime && f.mime.startsWith('image/'))
+      .map((f) => getThumbnailCacheKey(f, hpw))
+      .filter(Boolean)
+  );
+
+  await new Promise((resolve) => {
+    const prefix = `${hpw}:`;
+    const tx = db.transaction(THUMBNAIL_CACHE_STORE, 'readwrite');
+    const store = tx.objectStore(THUMBNAIL_CACHE_STORE);
+    const cursorReq = store.openCursor();
+
+    cursorReq.onsuccess = (event) => {
+      const cursor = event.target.result;
+      if (!cursor) {
+        resolve(true);
+        return;
+      }
+      const key = String(cursor.primaryKey || '');
+      if (key.startsWith(prefix) && !valid.has(key)) {
+        store.delete(cursor.primaryKey);
+      }
+      cursor.continue();
+    };
+    cursorReq.onerror = () => resolve(false);
+  });
+}
+
+async function setImageSourceAndWait(img, src) {
+  if (!img || !src) return;
+  await new Promise((resolve) => {
+    let finished = false;
+    const done = () => {
+      if (finished) return;
+      finished = true;
+      img.onload = null;
+      img.onerror = null;
+      resolve();
+    };
+    img.onload = done;
+    img.onerror = done;
+    img.src = src;
+    if (img.complete) done();
+    setTimeout(done, 3000);
+  });
+}
 
 async function processThumbnailQueue() {
   if (isProcessingQueue) return;
@@ -520,9 +714,11 @@ async function processThumbnailQueue() {
 
   while (thumbnailQueue.length > 0) {
     const task = thumbnailQueue.shift();
-    const { img, preview, fileId, renderId } = task;
+    const { img, preview, file, renderId } = task;
+    const fileId = file?.id;
 
     if (renderId !== currentRenderId || !document.contains(preview)) continue;
+    if (!fileId) continue;
 
     if (!hpw) {
       localStorage.removeItem('hpw');
@@ -531,35 +727,41 @@ async function processThumbnailQueue() {
     }
 
     try {
-      const res = await fetch(`/files/${fileId}`);
-      if (res.status === 401) { localStorage.removeItem('hpw'); window.location.href = '/login'; return; }
-      if (!res.ok) throw new Error('Fetch failed');
-      const encryptedBuf = await res.arrayBuffer();
-      const decrypted = await decryptFile(hpw, encryptedBuf);
+      const cacheKey = getThumbnailCacheKey(file, hpw);
+      let thumbnailDataUrl = await getCachedThumbnail(cacheKey);
 
-      const blob = new Blob([decrypted]);
-      const bitmap = await createImageBitmap(blob);
-      const maxDim = 200;
-      let w = bitmap.width;
-      let h = bitmap.height;
-      if (w > maxDim || h > maxDim) {
-        const scale = Math.min(maxDim / w, maxDim / h);
-        w = Math.round(w * scale);
-        h = Math.round(h * scale);
+      if (!thumbnailDataUrl) {
+        const res = await fetch(`/files/${fileId}`);
+        if (res.status === 401) { localStorage.removeItem('hpw'); window.location.href = '/login'; return; }
+        if (!res.ok) throw new Error('Fetch failed');
+        const encryptedBuf = await res.arrayBuffer();
+        const decrypted = await decryptFile(hpw, encryptedBuf);
+
+        const blob = new Blob([decrypted]);
+        const bitmap = await createImageBitmap(blob);
+        const maxDim = 200;
+        let w = bitmap.width;
+        let h = bitmap.height;
+        if (w > maxDim || h > maxDim) {
+          const scale = Math.min(maxDim / w, maxDim / h);
+          w = Math.round(w * scale);
+          h = Math.round(h * scale);
+        }
+        const canvas = document.createElement('canvas');
+        canvas.width = w;
+        canvas.height = h;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(bitmap, 0, 0, w, h);
+        bitmap.close();
+
+        thumbnailDataUrl = canvas.toDataURL('image/jpeg', 0.85);
+        await setCachedThumbnail(cacheKey, thumbnailDataUrl);
+        void pruneThumbnailCache();
       }
-      const canvas = document.createElement('canvas');
-      canvas.width = w;
-      canvas.height = h;
-      const ctx = canvas.getContext('2d');
-      ctx.drawImage(bitmap, 0, 0, w, h);
-      bitmap.close();
 
-      img.src = canvas.toDataURL('image/jpeg', 0.85);
-      await new Promise((resolve) => {
-        img.onload = resolve;
-        img.onerror = resolve;
-        setTimeout(resolve, 3000);
-      });
+      if (thumbnailDataUrl) {
+        await setImageSourceAndWait(img, thumbnailDataUrl);
+      }
     } catch (e) {
     }
 
@@ -607,7 +809,7 @@ function renderFileList(files, container) {
       thumbnailQueue.push({
         img,
         preview,
-        fileId: file.id,
+        file,
         renderId
       });
 
@@ -669,7 +871,6 @@ function renderFileList(files, container) {
 
 async function fetchFiles() {
   const list = document.getElementById("file-list");
-  const countEl = document.getElementById("file-count");
   const emptyState = document.getElementById("empty-state");
   const loading = document.getElementById("loading-indicator");
 
@@ -680,8 +881,9 @@ async function fetchFiles() {
     const data = await res.json();
 
     window.fileData = data.files;
-
-    if (countEl) countEl.textContent = `${window.fileData.length} files`;
+    void reconcileThumbnailCache(window.fileData);
+    void pruneThumbnailCache();
+    updateSearchPlaceholder(window.fileData.length);
 
     if (loading) loading.remove();
 

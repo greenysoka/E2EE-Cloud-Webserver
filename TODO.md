@@ -9,13 +9,13 @@
 - [x] Support Autofill for login (Proton doesn't work :sob:)
 - [x] Improve login window
 - [x] Support for multiple files upload
+- [x] Add caching functionality to frontend
+- [x] Add percentage display for used storage
 - [ ] Add vault settings to popup in main page
 - [ ] Add a preview popup for images when thumbnail is clicked
 - [ ] Add naming functionality for vaults
 - [ ] Add multple delete functionality
 - [ ] Add a share button for files
-- [ ] Add caching functionality to frontend
-- [ ] Add percentage display for used storage
 - [ ] Replace Google Fonts with local fonts
 - [ ] Add folders
 - [ ] API Access to support 3rd party apps
