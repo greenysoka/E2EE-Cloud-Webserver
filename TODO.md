@@ -15,10 +15,11 @@
 - [x] Long files need to be shortened displayed for responsive view
 - [x] Add vault settings to popup in main page
 - [x] Replace Google Fonts with local fonts
-- [ ] Try to implement chunking to support larger files or file limits by hosting providers
+- [x] Try to implement chunking to support larger files or file limits by hosting providers
 - [ ] Add naming functionality for vaults
 - [ ] Add multple select/delete functionality
 - [ ] Add folders
 - [ ] Add a share button for files
 - [ ] API Access to support 3rd party apps
 - [ ] Maybe add a local client for Linux & Windows with mount feature for better file accessing
+- [ ] Add Images to README

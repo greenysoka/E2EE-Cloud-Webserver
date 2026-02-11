@@ -53,15 +53,15 @@ async function decryptFile(hpwHex, blob) {
   );
 }
 
-function arrayBufferToBase64(buffer) {
-  const bytes = new Uint8Array(buffer);
+const arrayBufferToBase64 = (buffer) => {
   let binary = '';
-  const chunkSize = 8192;
-  for (let i = 0; i < bytes.length; i += chunkSize) {
-    binary += String.fromCharCode.apply(null, bytes.subarray(i, i + chunkSize));
+  const bytes = new Uint8Array(buffer);
+  const len = bytes.byteLength;
+  for (let i = 0; i < len; i++) {
+    binary += String.fromCharCode(bytes[i]);
   }
-  return btoa(binary);
-}
+  return window.btoa(binary);
+};
 
 function getHpw() {
   return localStorage.getItem('hpw') || '';
@@ -354,17 +354,131 @@ function setupDropZone() {
     return item;
   };
 
-  const updateItem = (item, pct, isError = false, isSuccess = false) => {
+  const updateItem = (item, pct, isError = false, isSuccess = false, errorMsg = "") => {
     const bar = item.querySelector(".progress-bar");
     const label = item.querySelector(".upload-pct");
     if (bar) bar.style.width = `${pct}%`;
     if (label) {
-      if (isError) label.textContent = "Error";
+      if (isError) label.textContent = errorMsg || "Error";
       else if (isSuccess) label.textContent = "Done";
       else label.textContent = `${Math.round(pct)}%`;
     }
     if (isError) item.classList.add("error");
     if (isSuccess) item.classList.add("success");
+  };
+
+
+
+  const uploadFileChunked = async (file, item, encryptedBytes, plaintextSize) => {
+    const CHUNK_SIZE = 768 * 1024;
+    const totalChunks = Math.ceil(encryptedBytes.length / CHUNK_SIZE);
+
+    const initRes = await fetch("/upload/init", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        name: file.name,
+        mime: file.type || "application/octet-stream",
+        size: plaintextSize,
+        total_chunks: totalChunks,
+      }),
+    });
+    if (initRes.status === 401) { localStorage.removeItem('hpw'); window.location.href = '/login'; return; }
+    const initData = await initRes.json();
+    if (!initData.ok) throw new Error(initData.error || "Init failed");
+    const uploadId = initData.upload_id;
+
+    for (let i = 0; i < totalChunks; i++) {
+      const start = i * CHUNK_SIZE;
+      const end = Math.min(start + CHUNK_SIZE, encryptedBytes.length);
+      const chunkBytes = encryptedBytes.subarray(start, end);
+
+      let binary = '';
+      for (let j = 0; j < chunkBytes.length; j++) {
+        binary += String.fromCharCode(chunkBytes[j]);
+      }
+      const chunkBase64 = btoa(binary);
+
+      const chunkRes = await fetch("/upload/chunk", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          upload_id: uploadId,
+          index: i,
+          data: chunkBase64,
+        }),
+      });
+      if (chunkRes.status === 401) { localStorage.removeItem('hpw'); window.location.href = '/login'; return; }
+      const chunkResult = await chunkRes.json();
+      if (!chunkResult.ok) throw new Error(chunkResult.error || "Chunk failed");
+
+      const chunkProgress = 30 + ((i + 1) / totalChunks) * 65;
+      updateItem(item, chunkProgress);
+    }
+
+    const completeRes = await fetch("/upload/complete", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ upload_id: uploadId }),
+    });
+    if (completeRes.status === 401) { localStorage.removeItem('hpw'); window.location.href = '/login'; return; }
+    const completeData = await completeRes.json();
+    if (!completeData.ok) throw new Error(completeData.error || "Complete failed");
+
+    updateItem(item, 100, false, true);
+    setTimeout(() => { window.location.reload(); }, 1000);
+  };
+
+  const uploadFileSingle = (file, item, encryptedBytes, plaintextSize) => {
+    return new Promise((resolve, reject) => {
+      let binary = '';
+      for (let i = 0; i < encryptedBytes.length; i++) {
+        binary += String.fromCharCode(encryptedBytes[i]);
+      }
+      const b64 = btoa(binary);
+
+      const xhr = new XMLHttpRequest();
+      xhr.open("POST", "/upload");
+      xhr.setRequestHeader("Content-Type", "application/json");
+
+      xhr.upload.onprogress = (e) => {
+        if (e.lengthComputable) {
+          const percentComplete = (e.loaded / e.total) * 70 + 30;
+          updateItem(item, percentComplete);
+        }
+      };
+
+      xhr.onload = () => {
+        if (xhr.status >= 200 && xhr.status < 300) {
+          const payload = JSON.parse(xhr.responseText);
+          if (payload.ok) {
+            updateItem(item, 100, false, true);
+            setTimeout(() => { window.location.reload(); }, 1000);
+            resolve();
+          } else {
+            updateItem(item, 100, true, false, payload.error);
+            console.error(payload.error);
+            reject(new Error(payload.error));
+          }
+        } else {
+          updateItem(item, 100, true, false, `Upload failed (${xhr.status})`);
+          reject(new Error(`HTTP ${xhr.status}`));
+        }
+      };
+
+      xhr.onerror = () => {
+        updateItem(item, 100, true, false, "Network error");
+        reject(new Error("Network error"));
+      };
+
+      xhr.send(JSON.stringify({
+        data: b64,
+        name: file.name,
+        mime: file.type || "application/octet-stream",
+        size: plaintextSize,
+        total_chunks: 1,
+      }));
+    });
   };
 
   const uploadFile = async (file) => {
@@ -384,52 +498,19 @@ function setupDropZone() {
       encryptProgress(10);
       const plaintext = await file.arrayBuffer();
       encryptProgress(50);
-      const encrypted = await encryptFile(hpw, plaintext);
+      const encryptedBuffer = await encryptFile(hpw, plaintext);
+      const encryptedBytes = new Uint8Array(encryptedBuffer);
       encryptProgress(100);
 
-      const b64 = arrayBufferToBase64(encrypted);
+      const CHUNK_THRESHOLD = 768 * 1024;
 
-      const xhr = new XMLHttpRequest();
-      xhr.open("POST", "/upload");
-      xhr.setRequestHeader("Content-Type", "application/json");
-
-      xhr.upload.onprogress = (e) => {
-        if (e.lengthComputable) {
-          const percentComplete = (e.loaded / e.total) * 70 + 30;
-          updateItem(item, percentComplete);
-        }
-      };
-
-      xhr.onload = () => {
-        if (xhr.status >= 200 && xhr.status < 300) {
-          const payload = JSON.parse(xhr.responseText);
-          if (payload.ok) {
-            updateItem(item, 100, false, true);
-            setTimeout(() => {
-              window.location.reload();
-            }, 1000);
-          } else {
-            updateItem(item, 100, true);
-            console.error(payload.error);
-          }
-        } else {
-          updateItem(item, 100, true);
-        }
-      };
-
-      xhr.onerror = () => {
-        updateItem(item, 100, true);
-      };
-
-      xhr.send(JSON.stringify({
-        data: b64,
-        name: file.name,
-        mime: file.type || "application/octet-stream",
-        size: plaintext.byteLength
-      }));
-
+      if (encryptedBytes.length > CHUNK_THRESHOLD) {
+        await uploadFileChunked(file, item, encryptedBytes, plaintext.byteLength);
+      } else {
+        await uploadFileSingle(file, item, encryptedBytes, plaintext.byteLength);
+      }
     } catch (err) {
-      updateItem(item, 0, true);
+      updateItem(item, 0, true, false, err.message || "Upload failed");
       console.error(err);
     }
   };

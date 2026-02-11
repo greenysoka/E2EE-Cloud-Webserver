@@ -1,4 +1,5 @@
 import base64
+import shutil
 import io
 import json
 import os
@@ -105,6 +106,7 @@ AUTH_PATH = STORAGE_DIR / "auth.json"
 LOCK_PATH = STORAGE_DIR / "metadata.lock"
 SESSION_DIR = STORAGE_DIR / "sessions"
 CUSTOM_CONFIG_PATH = STORAGE_DIR / "config.json"
+UPLOAD_TMP_DIR = STORAGE_DIR / "tmp_uploads"
 
 PBKDF2_ITERS = int(CFG["pbkdf2_iterations"])
 TOTP_ISSUER = "EncryptedCloud"
@@ -153,6 +155,16 @@ def add_security_headers(resp):
 
 def ensure_storage():
     STORAGE_DIR.mkdir(parents=True, exist_ok=True)
+    UPLOAD_TMP_DIR.mkdir(parents=True, exist_ok=True)
+
+
+def cleanup_stale_uploads():
+    if UPLOAD_TMP_DIR.exists():
+        for child in UPLOAD_TMP_DIR.iterdir():
+            if child.is_dir():
+                shutil.rmtree(child, ignore_errors=True)
+            else:
+                child.unlink(missing_ok=True)
 
 
 def encrypt_text(hpw_hex: str, text: str) -> str:
@@ -385,6 +397,7 @@ def decrypt_bytes(hpw_hex: str, blob: bytes) -> bytes:
 
 
 ensure_storage()
+cleanup_stale_uploads()
 
 @app.get("/")
 def index():
@@ -611,6 +624,12 @@ def upload():
 
     plaintext_size = int(data.get("size") or 0)
     mime_type = data.get("mime") or "application/octet-stream"
+
+    if CFG["max_upload_mb"]:
+        max_upload_bytes = CFG["max_upload_mb"] * 1024 * 1024
+        if plaintext_size > max_upload_bytes:
+            return jsonify({"ok": False, "error": f"File exceeds {CFG['max_upload_mb']} MB upload limit"}), 413
+
     hpw = session["hpw"]
 
     file_id = uuid.uuid4().hex
@@ -650,6 +669,180 @@ def upload():
         items.insert(0, meta)
         save_metadata(items, hpw)
     return jsonify({"ok": True, "file": public_metadata([meta])[0]})
+
+
+@app.post("/upload/init")
+@limiter.limit("60 per minute")
+def upload_init():
+    require_unlocked()
+    data = request.get_json(silent=True)
+    if not data:
+        return jsonify({"ok": False, "error": "Missing data"}), 400
+
+    original_name = (data.get("name") or "").strip()
+    if not original_name:
+        return jsonify({"ok": False, "error": "Missing filename"}), 400
+
+    total_chunks = int(data.get("total_chunks") or 0)
+    if total_chunks < 1 or total_chunks > 50000:
+        return jsonify({"ok": False, "error": "Invalid chunk count"}), 400
+
+    plaintext_size = int(data.get("size") or 0)
+    mime_type = data.get("mime") or "application/octet-stream"
+
+    if CFG["max_upload_mb"]:
+        max_upload_bytes = CFG["max_upload_mb"] * 1024 * 1024
+        if plaintext_size > max_upload_bytes:
+            return jsonify({"ok": False, "error": f"File exceeds {CFG['max_upload_mb']} MB upload limit"}), 413
+
+    hpw = session["hpw"]
+    with FileLock(LOCK_PATH):
+        try:
+            items = load_metadata(hpw)
+        except ValueError:
+            return jsonify({"ok": False, "error": "Vault locked"}), 403
+
+        if CFG["max_storage_mb"]:
+            used_bytes = compute_storage_usage(items)
+            total_bytes = CFG["max_storage_mb"] * 1024 * 1024
+            if used_bytes + plaintext_size > total_bytes:
+                return jsonify({"ok": False, "error": "Storage limit reached"}), 413
+
+    upload_id = uuid.uuid4().hex
+    upload_dir = UPLOAD_TMP_DIR / upload_id
+    upload_dir.mkdir(parents=True, exist_ok=True)
+
+    meta = {
+        "name": original_name,
+        "mime": mime_type,
+        "size": plaintext_size,
+        "total_chunks": total_chunks,
+    }
+    (upload_dir / "meta.json").write_text(json.dumps(meta), encoding="utf-8")
+
+    return jsonify({"ok": True, "upload_id": upload_id})
+
+
+@app.post("/upload/chunk")
+@limiter.limit("600 per minute")
+def upload_chunk():
+    require_unlocked()
+    data = request.get_json(silent=True)
+    if not data:
+        return jsonify({"ok": False, "error": "Missing data"}), 400
+
+    upload_id = (data.get("upload_id") or "").strip()
+    if not upload_id:
+        return jsonify({"ok": False, "error": "Missing upload_id"}), 400
+
+    upload_dir = UPLOAD_TMP_DIR / upload_id
+    if not upload_dir.exists() or not upload_dir.is_dir():
+        return jsonify({"ok": False, "error": "Unknown upload"}), 404
+
+    chunk_index = int(data.get("index", -1))
+    chunk_data = data.get("data") or ""
+    if chunk_index < 0 or not chunk_data:
+        return jsonify({"ok": False, "error": "Invalid chunk"}), 400
+
+    try:
+        meta = json.loads((upload_dir / "meta.json").read_text(encoding="utf-8"))
+    except Exception:
+        return jsonify({"ok": False, "error": "Corrupted upload session"}), 500
+
+    if chunk_index >= meta["total_chunks"]:
+        return jsonify({"ok": False, "error": "Chunk index out of range"}), 400
+
+    (upload_dir / f"{chunk_index}.part").write_text(chunk_data, encoding="utf-8")
+
+    return jsonify({"ok": True, "index": chunk_index})
+
+
+@app.post("/upload/complete")
+@limiter.limit("60 per minute")
+def upload_complete():
+    require_unlocked()
+    data = request.get_json(silent=True)
+    if not data:
+        return jsonify({"ok": False, "error": "Missing data"}), 400
+
+    upload_id = (data.get("upload_id") or "").strip()
+    if not upload_id:
+        return jsonify({"ok": False, "error": "Missing upload_id"}), 400
+
+    upload_dir = UPLOAD_TMP_DIR / upload_id
+    if not upload_dir.exists() or not upload_dir.is_dir():
+        return jsonify({"ok": False, "error": "Unknown upload"}), 404
+
+    try:
+        meta = json.loads((upload_dir / "meta.json").read_text(encoding="utf-8"))
+    except Exception:
+        shutil.rmtree(upload_dir, ignore_errors=True)
+        return jsonify({"ok": False, "error": "Corrupted upload session"}), 500
+
+    total_chunks = meta["total_chunks"]
+    original_name = meta["name"]
+    mime_type = meta["mime"]
+    plaintext_size = meta["size"]
+
+    for i in range(total_chunks):
+        if not (upload_dir / f"{i}.part").exists():
+            return jsonify({"ok": False, "error": f"Missing chunk {i}"}), 400
+
+    hpw = session["hpw"]
+    file_id = uuid.uuid4().hex
+    alias = f"vault-{secrets.token_hex(4)}"
+    blob_path = STORAGE_DIR / f"{file_id}.bin"
+
+    try:
+        with blob_path.open("wb") as f_out:
+            for i in range(total_chunks):
+                chunk_path = upload_dir / f"{i}.part"
+                chunk_b64 = chunk_path.read_text(encoding="utf-8")
+                chunk_bytes = base64.b64decode(chunk_b64)
+                f_out.write(chunk_bytes)
+    except Exception:
+        blob_path.unlink(missing_ok=True)
+        shutil.rmtree(upload_dir, ignore_errors=True)
+        return jsonify({"ok": False, "error": "Invalid file data"}), 400
+
+    if blob_path.stat().st_size == 0:
+        blob_path.unlink(missing_ok=True)
+        shutil.rmtree(upload_dir, ignore_errors=True)
+        return jsonify({"ok": False, "error": "Empty file"}), 400
+
+    with FileLock(LOCK_PATH):
+        try:
+            items = load_metadata(hpw)
+        except ValueError:
+            blob_path.unlink(missing_ok=True)
+            shutil.rmtree(upload_dir, ignore_errors=True)
+            return jsonify({"ok": False, "error": "Vault locked"}), 403
+
+        used_bytes = compute_storage_usage(items)
+        if CFG["max_storage_mb"]:
+            total_bytes = CFG["max_storage_mb"] * 1024 * 1024
+            if used_bytes + plaintext_size > total_bytes:
+                blob_path.unlink(missing_ok=True)
+                shutil.rmtree(upload_dir, ignore_errors=True)
+                return jsonify({"ok": False, "error": "Storage limit reached"}), 413
+
+        file_meta = {
+            "id": file_id,
+            "alias": alias,
+            "mime": mime_type,
+            "size": plaintext_size,
+            "uploaded_at": datetime.now(timezone.utc).isoformat(timespec="seconds").replace("+00:00", "Z"),
+        }
+        if METADATA_ENCRYPTED:
+            file_meta["original_name"] = original_name
+        else:
+            file_meta["name_enc"] = encrypt_text(hpw, original_name)
+        items.insert(0, file_meta)
+        save_metadata(items, hpw)
+
+    shutil.rmtree(upload_dir, ignore_errors=True)
+
+    return jsonify({"ok": True, "file": public_metadata([file_meta])[0]})
 
 
 @app.get("/files/<file_id>")
