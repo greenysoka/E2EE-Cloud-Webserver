@@ -23,3 +23,4 @@
 - [ ] API Access to support 3rd party apps
 - [ ] Maybe add a local client for Linux & Windows with mount feature for better file accessing
 - [ ] Add Images to README
+- [ ] Add a password strength checker

@@ -370,7 +370,7 @@ function setupDropZone() {
 
 
   const uploadFileChunked = async (file, item, encryptedBytes, plaintextSize) => {
-    const CHUNK_SIZE = 768 * 1024;
+    const CHUNK_SIZE = 720 * 1024;
     const totalChunks = Math.ceil(encryptedBytes.length / CHUNK_SIZE);
 
     const initRes = await fetch("/upload/init", {
@@ -502,7 +502,7 @@ function setupDropZone() {
       const encryptedBytes = new Uint8Array(encryptedBuffer);
       encryptProgress(100);
 
-      const CHUNK_THRESHOLD = 768 * 1024;
+      const CHUNK_THRESHOLD = 720 * 1024;
 
       if (encryptedBytes.length > CHUNK_THRESHOLD) {
         await uploadFileChunked(file, item, encryptedBytes, plaintext.byteLength);
