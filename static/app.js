@@ -81,6 +81,85 @@ const formatDate = (dateString = '') => {
   return d.toLocaleString();
 };
 
+const MOBILE_FILE_NAME_BREAKPOINT = 650;
+const TABLET_FILE_NAME_BREAKPOINT = 1024;
+const MOBILE_FILE_NAME_MAX_CHARS = 52;
+const TABLET_FILE_NAME_MAX_CHARS = 78;
+const DESKTOP_FILE_NAME_MAX_CHARS = 96;
+let responsiveFileNameResizeBound = false;
+let responsiveFileNameResizeTimer = null;
+
+function truncateMiddle(text, maxChars) {
+  if (!text || text.length <= maxChars) return text || '';
+  const marker = '...';
+  if (maxChars <= marker.length) return '.'.repeat(maxChars);
+  const keep = maxChars - marker.length;
+  const start = Math.ceil(keep / 2);
+  const end = Math.floor(keep / 2);
+  return `${text.slice(0, start)}${marker}${text.slice(text.length - end)}`;
+}
+
+function splitFileName(fileName) {
+  const lastDot = fileName.lastIndexOf('.');
+  if (lastDot <= 0 || lastDot === fileName.length - 1) {
+    return { base: fileName, ext: '' };
+  }
+  const ext = fileName.slice(lastDot);
+  if (ext.length > 15) {
+    return { base: fileName, ext: '' };
+  }
+  return { base: fileName.slice(0, lastDot), ext };
+}
+
+function truncateFileName(fileName, maxChars) {
+  if (!fileName || fileName.length <= maxChars) return fileName || '';
+  const { base, ext } = splitFileName(fileName);
+  if (!ext) return truncateMiddle(fileName, maxChars);
+
+  const maxBaseChars = maxChars - ext.length;
+  if (maxBaseChars <= 8) return truncateMiddle(fileName, maxChars);
+  return `${truncateMiddle(base, maxBaseChars)}${ext}`;
+}
+
+function getResponsiveFileName(fileName) {
+  if (!fileName) return '';
+  const viewportWidth = window.innerWidth || document.documentElement.clientWidth || 0;
+  if (viewportWidth <= MOBILE_FILE_NAME_BREAKPOINT) {
+    return truncateFileName(fileName, MOBILE_FILE_NAME_MAX_CHARS);
+  }
+  if (viewportWidth <= TABLET_FILE_NAME_BREAKPOINT) {
+    return truncateFileName(fileName, TABLET_FILE_NAME_MAX_CHARS);
+  }
+  return truncateFileName(fileName, DESKTOP_FILE_NAME_MAX_CHARS);
+}
+
+function setResponsiveFileName(el, fullName) {
+  if (!el) return;
+  const safeName = String(fullName || '');
+  el.dataset.fullName = safeName;
+  el.title = safeName;
+  el.textContent = getResponsiveFileName(safeName);
+}
+
+function applyResponsiveFileNames(root = document) {
+  root.querySelectorAll('.file-name[data-full-name]').forEach((el) => {
+    const fullName = el.dataset.fullName || '';
+    el.textContent = getResponsiveFileName(fullName);
+    el.title = fullName;
+  });
+}
+
+function setupResponsiveFileNameResize() {
+  if (responsiveFileNameResizeBound) return;
+  responsiveFileNameResizeBound = true;
+  window.addEventListener('resize', () => {
+    clearTimeout(responsiveFileNameResizeTimer);
+    responsiveFileNameResizeTimer = setTimeout(() => {
+      applyResponsiveFileNames(document);
+    }, 80);
+  });
+}
+
 function setHint(el, message, isError = false) {
   if (!el) return;
   el.textContent = message;
@@ -824,7 +903,8 @@ function renderFileList(files, container) {
       `;
     }
 
-    card.querySelector('.file-name').textContent = file.display_name;
+    const fileNameEl = card.querySelector('.file-name');
+    setResponsiveFileName(fileNameEl, file.display_name || file.alias || 'file');
     const metaText = `${file.mime} · ${formatSize(file.size)}`;
     card.querySelector('.file-details .file-meta:not(.uploaded-at)').textContent = metaText;
 
@@ -862,6 +942,7 @@ function renderFileList(files, container) {
   });
 
   setupAnimations();
+  applyResponsiveFileNames(container);
 
   const savedScroll = localStorage.getItem('scrollY');
   if (savedScroll) {
@@ -1245,6 +1326,7 @@ setupDeleteModal();
 setupRenameModal();
 setupImagePreviewModal();
 setupAnimations();
+setupResponsiveFileNameResize();
 function setupViewToggle() {
   const toggleBtn = document.getElementById("view-toggle");
   const list = document.getElementById("file-list");
