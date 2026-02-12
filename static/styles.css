@@ -599,7 +599,7 @@ select:focus {
   display: flex;
   flex-shrink: 0;
   margin-left: auto;
-  align-self: flex-start;
+  align-self: center;
 }
 
 .file-menu {
