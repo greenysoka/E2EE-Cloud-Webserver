@@ -398,10 +398,13 @@ select:focus {
   display: flex;
   gap: 12px;
   align-items: center;
+  flex-wrap: nowrap;
 }
 
 .filter-group select {
   cursor: pointer;
+  width: auto;
+  min-width: 150px;
 }
 
 .storage {
@@ -594,8 +597,63 @@ select:focus {
 
 .file-actions {
   display: flex;
-  gap: 8px;
   flex-shrink: 0;
+  margin-left: auto;
+  align-self: flex-start;
+}
+
+.file-menu {
+  position: relative;
+}
+
+.file-menu-toggle {
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
+  padding: 6px;
+}
+
+.file-menu-toggle[aria-expanded="true"] {
+  background-color: var(--panel-alt);
+  border-color: var(--muted);
+}
+
+.file-menu-popup {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  min-width: 150px;
+  padding: 6px;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: var(--panel);
+  z-index: 30;
+  animation: popupIn 0.15s ease-out;
+}
+
+.file-menu-item {
+  width: 100%;
+  text-align: left;
+  background: transparent;
+  border: 1px solid transparent;
+  color: var(--text);
+  font: inherit;
+  font-size: 0.88rem;
+  padding: 8px 10px;
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+.file-menu-item:hover {
+  background-color: var(--panel-alt);
+}
+
+.file-menu-item.danger {
+  color: var(--danger);
+}
+
+.file-menu-item.danger:hover {
+  background-color: rgba(239, 68, 68, 0.12);
 }
 
 .hint {
@@ -768,6 +826,11 @@ select:focus {
     min-width: 0;
   }
 
+  .filter-group select {
+    width: 100%;
+    min-width: 0;
+  }
+
   #view-toggle {
     justify-self: end;
   }
@@ -778,18 +841,18 @@ select:focus {
   }
 
   .file-card {
-    flex-wrap: wrap;
-    align-items: flex-start;
+    flex-wrap: nowrap;
+    align-items: center;
   }
 
   .file-main {
-    width: 100%;
+    width: auto;
     min-width: 0;
   }
 
   .file-actions {
-    width: 100%;
-    flex-wrap: wrap;
+    margin-left: auto;
+    margin-top: 0;
   }
 }
 
@@ -808,26 +871,48 @@ select:focus {
   }
 
   .file-card {
-    flex-direction: column;
+    flex-direction: row;
     align-items: flex-start;
+    padding: 14px;
+    gap: 12px;
   }
 
   .file-actions {
-    width: 100%;
-    margin-top: 12px;
-  }
-
-  .file-actions .btn {
-    flex: 1;
+    width: auto;
+    margin-top: 0;
+    justify-content: flex-end;
+    margin-left: auto;
+    align-self: flex-start;
   }
 
   .filters {
     flex-direction: column;
+    gap: 10px;
+  }
+
+  .search {
+    width: 100%;
+    min-width: 0;
   }
 
   .filter-group {
     display: grid;
     grid-template-columns: 1fr 1fr;
+    gap: 10px;
+    width: 100%;
+  }
+
+  .filter-group > * {
+    min-width: 0;
+  }
+
+  .filter-group select {
+    width: 100%;
+    min-width: 0;
+  }
+
+  #view-toggle {
+    justify-self: end;
   }
 
   .modal-actions {
@@ -1016,15 +1101,7 @@ select:focus {
   margin-top: auto;
   padding-top: 12px;
   border-top: 1px solid var(--border-soft);
-  justify-content: space-between;
-  gap: 8px;
-}
-
-.file-list.grid-view .file-actions .btn {
-  flex: 1;
-  padding: 8px 4px;
-  min-width: 0;
-  font-size: 0.8rem;
+  justify-content: flex-end;
 }
 
 .sr-only {
@@ -1045,8 +1122,11 @@ select:focus {
 
 @media (max-width: 650px) {
   .file-card .file-main {
-    width: 100%;
+    width: auto;
+    flex: 1;
     min-width: 0;
+    align-items: flex-start;
+    gap: 12px;
   }
 
   .file-card .file-details {
@@ -1056,5 +1136,21 @@ select:focus {
 
   .file-card .file-name {
     -webkit-line-clamp: 2;
+  }
+}
+
+@media (max-width: 430px) {
+  .file-card {
+    flex-direction: column;
+  }
+
+  .file-card .file-main {
+    width: 100%;
+  }
+
+  .file-actions {
+    width: 100%;
+    justify-content: flex-end;
+    margin-top: 8px;
   }
 }

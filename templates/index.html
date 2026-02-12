@@ -150,9 +150,22 @@
             </div>
           </div>
           <div class="file-actions">
-            <button class="btn small rename-btn" type="button">Edit</button>
-            <a class="btn small ghost download-btn">Download</a>
-            <button class="btn small ghost danger delete-btn" type="button">Delete</button>
+            <div class="file-menu">
+              <button class="btn icon-btn ghost file-menu-toggle" type="button" aria-label="File actions"
+                title="File actions" aria-haspopup="true" aria-expanded="false">
+                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none"
+                  stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <circle cx="12" cy="5" r="1.5"></circle>
+                  <circle cx="12" cy="12" r="1.5"></circle>
+                  <circle cx="12" cy="19" r="1.5"></circle>
+                </svg>
+              </button>
+              <div class="file-menu-popup" hidden>
+                <button class="file-menu-item rename-btn" type="button">Edit</button>
+                <button class="file-menu-item download-btn" type="button">Download</button>
+                <button class="file-menu-item delete-btn danger" type="button">Delete</button>
+              </div>
+            </div>
           </div>
         </div>
       </template>

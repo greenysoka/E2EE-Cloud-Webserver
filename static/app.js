@@ -998,8 +998,6 @@ function renderFileList(files, container) {
     card.querySelector('.uploaded-at').textContent = 'Uploaded ' + formatDate(file.uploaded_at);
 
     const downloadBtn = card.querySelector('.download-btn');
-    downloadBtn.removeAttribute('href');
-    downloadBtn.style.cursor = 'pointer';
     downloadBtn.addEventListener('click', async (e) => {
       e.preventDefault();
       const hpw = getHpw();
@@ -1074,6 +1072,42 @@ function setupAnimations() {
     card.addEventListener('animationend', () => {
       card.classList.remove('appearing');
     });
+  });
+}
+
+function closeAllFileActionMenus() {
+  document.querySelectorAll('.file-menu').forEach((menu) => {
+    const toggleBtn = menu.querySelector('.file-menu-toggle');
+    const popup = menu.querySelector('.file-menu-popup');
+    if (!popup) return;
+    popup.hidden = true;
+    if (toggleBtn) toggleBtn.setAttribute('aria-expanded', 'false');
+  });
+}
+
+function setupFileActionMenus() {
+  document.addEventListener("click", (event) => {
+    const toggleBtn = event.target.closest(".file-menu-toggle");
+    if (toggleBtn) {
+      const menu = toggleBtn.closest(".file-menu");
+      const popup = menu?.querySelector(".file-menu-popup");
+      if (!popup) return;
+      const shouldOpen = popup.hidden;
+      closeAllFileActionMenus();
+      if (shouldOpen) {
+        popup.hidden = false;
+        toggleBtn.setAttribute("aria-expanded", "true");
+      }
+      return;
+    }
+
+    closeAllFileActionMenus();
+  });
+
+  document.addEventListener("keydown", (event) => {
+    if (event.key === "Escape") {
+      closeAllFileActionMenus();
+    }
   });
 }
 
@@ -1456,6 +1490,7 @@ handleSetup();
 setupDropZone();
 setupLockButton();
 setupFilters();
+setupFileActionMenus();
 setupDeleteModal();
 setupRenameModal();
 setupImagePreviewModal();
