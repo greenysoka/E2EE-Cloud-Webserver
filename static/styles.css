@@ -979,9 +979,10 @@ select:focus {
 }
 
 .file-list.grid-view .file-card {
+  position: relative;
   flex-direction: column;
   align-items: flex-start;
-  padding: 16px;
+  padding: 12px;
   height: 100%;
 }
 
@@ -994,8 +995,9 @@ select:focus {
 
 .file-list.grid-view .file-preview {
   width: 100%;
-  height: 140px;
+  height: 160px;
   margin-bottom: 4px;
+  border-radius: 8px;
 }
 
 .file-list.grid-view .file-preview.is-icon {
@@ -1027,9 +1029,45 @@ select:focus {
   text-overflow: ellipsis;
   display: -webkit-box;
   -webkit-line-clamp: 2;
+  line-clamp: 2;
   -webkit-box-orient: vertical;
   line-height: 1.3;
   margin-bottom: 4px;
+  font-weight: 500;
+}
+
+.file-list.grid-view .file-meta {
+  font-size: 0.8rem;
+}
+
+.file-list.grid-view .file-actions {
+  position: absolute;
+  top: 20px;
+  right: 20px;
+  width: auto;
+  margin: 0;
+  padding: 0;
+  border: none;
+  z-index: 10;
+}
+
+.file-list.grid-view .file-menu-toggle {
+  background-color: var(--panel);
+  border: 1px solid var(--border);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+  width: 32px;
+  height: 32px;
+  padding: 6px;
+  border-radius: 8px;
+  color: var(--text);
+  transition: all 0.2s ease;
+}
+
+.file-list.grid-view .file-menu-toggle:hover,
+.file-list.grid-view .file-menu-toggle:focus,
+.file-list.grid-view .file-menu-toggle[aria-expanded="true"] {
+  background-color: var(--panel-alt);
+  border-color: var(--muted);
 }
 
 .upload-queue {
@@ -1097,14 +1135,6 @@ select:focus {
   background: var(--accent-2);
 }
 
-.file-list.grid-view .file-actions {
-  width: 100%;
-  margin-top: auto;
-  padding-top: 12px;
-  border-top: 1px solid var(--border-soft);
-  justify-content: flex-end;
-}
-
 .sr-only {
   position: absolute;
   left: -9999px;
@@ -1116,6 +1146,7 @@ select:focus {
   white-space: normal;
   display: -webkit-box;
   -webkit-line-clamp: 2;
+  line-clamp: 2;
   -webkit-box-orient: vertical;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -1137,6 +1168,7 @@ select:focus {
 
   .file-card .file-name {
     -webkit-line-clamp: 2;
+    line-clamp: 2;
   }
 }
 
