@@ -1524,3 +1524,21 @@ select:focus {
 [data-theme="light"] .file-card.selected {
   background-color: rgba(16, 51, 125, 0.06);
 }
+
+.settings-version {
+  margin-top: 16px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border-soft);
+  text-align: center;
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  opacity: 0.6;
+}
+
+.page-version {
+  margin-top: 24px;
+  text-align: center;
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  opacity: 0.5;
+}

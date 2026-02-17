@@ -1554,17 +1554,13 @@ function setupSettingsPopup() {
 
   if (!btn || !popup) return;
 
-  const savedTheme = localStorage.getItem("theme");
   if (themeSelect) {
-    themeSelect.value = savedTheme || "";
     themeSelect.addEventListener("change", () => {
       const theme = themeSelect.value;
       if (theme) {
         document.documentElement.setAttribute("data-theme", theme);
-        localStorage.setItem("theme", theme);
       } else {
         document.documentElement.removeAttribute("data-theme");
-        localStorage.removeItem("theme");
       }
     });
   }
@@ -1575,6 +1571,7 @@ function setupSettingsPopup() {
       const maxStorage = document.getElementById("settings-max-storage")?.value;
       const sessionHours = document.getElementById("settings-session-hours")?.value;
       const vaultName = document.getElementById("settings-vault-name")?.value?.trim();
+      const theme = document.getElementById("theme-select")?.value;
 
       saveBtn.disabled = true;
       saveBtn.textContent = "Saving...";
@@ -1589,6 +1586,7 @@ function setupSettingsPopup() {
             max_storage_mb: maxStorage ? parseInt(maxStorage) : undefined,
             session_hours: sessionHours ? parseInt(sessionHours) : undefined,
             vault_name: vaultName || undefined,
+            theme: theme !== undefined ? theme : undefined,
           }),
         });
         const payload = await res.json();

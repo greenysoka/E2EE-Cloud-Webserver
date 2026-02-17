@@ -32,10 +32,10 @@
             <div class="field">
               <label for="theme-select">Theme</label>
               <select id="theme-select">
-                <option value="">Default (Dark)</option>
-                <option value="light">Light</option>
-                <option value="ultra-dark">Ultra Dark</option>
-                <option value="high-contrast">High Contrast</option>
+                <option value="" {% if not theme %}selected{% endif %}>Default (Dark)</option>
+                <option value="light" {% if theme == "light" %}selected{% endif %}>Light</option>
+                <option value="ultra-dark" {% if theme == "ultra-dark" %}selected{% endif %}>Ultra Dark</option>
+                <option value="high-contrast" {% if theme == "high-contrast" %}selected{% endif %}>High Contrast</option>
               </select>
             </div>
             <div class="field">
@@ -54,6 +54,7 @@
               <button id="save-settings-btn" class="btn primary small" type="button">Save Changes</button>
             </div>
             <div id="settings-status" class="hint" hidden></div>
+            <div class="settings-version">v{{ version }}</div>
           </div>
         </div>
       </div>

@@ -10,15 +10,14 @@
   <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}" />
   <script>
     (function () {
-      const savedTheme = localStorage.getItem('theme');
-      if (savedTheme) {
-        document.documentElement.setAttribute('data-theme', savedTheme);
-      }
+      {% if theme %}
+      document.documentElement.setAttribute('data-theme', '{{ theme }}');
+      {% endif %}
     })();
   </script>
 </head>
 
-<body>
+<body data-theme="{{ theme or '' }}">
   {% block content %}{% endblock %}
   <script src="{{ url_for('static', filename='app.js') }}"></script>
 </body>

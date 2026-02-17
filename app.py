@@ -11,7 +11,7 @@ from pathlib import Path
 
 from flask import Flask, abort, jsonify, redirect, render_template, request, send_file, session, url_for
 
-
+__version__ = "1.0.0"
 
 import pyotp
 import qrcode
@@ -58,6 +58,7 @@ def load_config() -> dict:
         "encrypt_metadata": 1,
         "totp_valid_window": 2,
         "vault_name": "My Cloud",
+        "theme": "",
     }
 
     for key, output_key, cast in [
@@ -430,6 +431,8 @@ def index():
         session_hours=CFG["session_hours"],
         vault_name=CFG["vault_name"],
         title=CFG["vault_name"],
+        theme=CFG["theme"],
+        version=__version__,
     )
 
 
@@ -440,7 +443,7 @@ def login():
         return redirect(url_for("setup"))
     if not auth.get("totp_enc"):
         return redirect(url_for("setup"))
-    return render_template("login.html", vault_name=CFG["vault_name"], title=CFG["vault_name"])
+    return render_template("login.html", vault_name=CFG["vault_name"], title=CFG["vault_name"], theme=CFG["theme"], version=__version__)
 
 
 @app.post("/login")
@@ -487,7 +490,7 @@ def setup():
     if auth and auth.get("totp_enc"):
         return redirect(url_for("login"))
     setup_totp = bool(auth) and not auth.get("totp_enc")
-    return render_template("setup.html", setup_totp=setup_totp)
+    return render_template("setup.html", setup_totp=setup_totp, theme=CFG["theme"], version=__version__)
 
 
 @app.post("/setup")
@@ -1250,6 +1253,11 @@ def update_settings():
             vn = str(data["vault_name"]).strip()[:50]
             if vn:
                 custom_config["vault_name"] = vn
+
+        if "theme" in data:
+            theme_val = str(data["theme"]).strip()
+            if theme_val in ("", "light", "ultra-dark", "high-contrast"):
+                custom_config["theme"] = theme_val
     except (ValueError, TypeError):
         return jsonify({"ok": False, "error": "Invalid values"}), 400
 
