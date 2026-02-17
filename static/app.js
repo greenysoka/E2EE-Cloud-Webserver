@@ -295,13 +295,15 @@ async function handleSetup() {
         const maxUpload = document.getElementById("max-upload")?.value;
         const maxStorage = document.getElementById("max-storage")?.value;
         const sessionHours = document.getElementById("session-hours")?.value;
+        const vaultName = document.getElementById("vault-name")?.value?.trim();
 
         body = {
           hpw,
           client_time: Date.now(),
           max_upload_mb: maxUpload ? parseInt(maxUpload) : 200,
           max_storage_mb: maxStorage ? parseInt(maxStorage) : 1000,
-          session_hours: sessionHours ? parseInt(sessionHours) : 8
+          session_hours: sessionHours ? parseInt(sessionHours) : 8,
+          vault_name: vaultName || "My Cloud",
         };
       }
       const res = await fetch("/setup", {
@@ -1572,6 +1574,7 @@ function setupSettingsPopup() {
       const maxUpload = document.getElementById("settings-max-upload")?.value;
       const maxStorage = document.getElementById("settings-max-storage")?.value;
       const sessionHours = document.getElementById("settings-session-hours")?.value;
+      const vaultName = document.getElementById("settings-vault-name")?.value?.trim();
 
       saveBtn.disabled = true;
       saveBtn.textContent = "Saving...";
@@ -1585,6 +1588,7 @@ function setupSettingsPopup() {
             max_upload_mb: maxUpload ? parseInt(maxUpload) : undefined,
             max_storage_mb: maxStorage ? parseInt(maxStorage) : undefined,
             session_hours: sessionHours ? parseInt(sessionHours) : undefined,
+            vault_name: vaultName || undefined,
           }),
         });
         const payload = await res.json();

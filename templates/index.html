@@ -2,7 +2,7 @@
 {% block content %}
 <div class="shell">
   <header class="topbar">
-    <div class="brand">My Cloud</div>
+    <div class="brand">{{ vault_name }}</div>
     <div class="actions">
       <button id="lock-btn" class="btn icon-btn ghost" type="button" aria-label="Lock Vault" title="Lock Vault">
         <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none"
@@ -25,6 +25,10 @@
         <div id="settings-popup" class="settings-popup" hidden>
           <div class="settings-header">Settings</div>
           <div class="settings-body">
+            <div class="field">
+              <label for="settings-vault-name">Vault Name</label>
+              <input id="settings-vault-name" type="text" value="{{ vault_name }}" maxlength="50">
+            </div>
             <div class="field">
               <label for="theme-select">Theme</label>
               <select id="theme-select">

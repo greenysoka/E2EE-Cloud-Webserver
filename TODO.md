@@ -19,7 +19,7 @@
 - [x] Add folders
 - [x] Add multple select/delete functionality
 - [x] Add color theme to global settings instead of browser cache
-- [ ] Add naming functionality for vaults
+- [x] Add naming functionality for vaults
 - [ ] Add a share button for files
 - [ ] API Access to support 3rd party apps
 - [ ] Maybe add a local client for Linux & Windows with mount feature for better file accessing

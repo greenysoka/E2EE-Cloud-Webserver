@@ -57,6 +57,7 @@ def load_config() -> dict:
         "secure_cookies": 1,
         "encrypt_metadata": 1,
         "totp_valid_window": 2,
+        "vault_name": "My Cloud",
     }
 
     for key, output_key, cast in [
@@ -427,6 +428,8 @@ def index():
         max_upload_mb=CFG["max_upload_mb"],
         max_storage_mb=CFG["max_storage_mb"],
         session_hours=CFG["session_hours"],
+        vault_name=CFG["vault_name"],
+        title=CFG["vault_name"],
     )
 
 
@@ -437,7 +440,7 @@ def login():
         return redirect(url_for("setup"))
     if not auth.get("totp_enc"):
         return redirect(url_for("setup"))
-    return render_template("login.html")
+    return render_template("login.html", vault_name=CFG["vault_name"], title=CFG["vault_name"])
 
 
 @app.post("/login")
@@ -515,6 +518,10 @@ def setup_post():
                     custom_config["max_storage_mb"] = int(data["max_storage_mb"])
                 if "session_hours" in data:
                     custom_config["session_hours"] = int(data["session_hours"])
+                if "vault_name" in data:
+                    vn = str(data["vault_name"]).strip()[:50]
+                    if vn:
+                        custom_config["vault_name"] = vn
 
                 if custom_config:
                     ensure_storage()
@@ -1227,17 +1234,22 @@ def update_settings():
             val = int(data["max_upload_mb"])
             if val < 1: val = 1
             custom_config["max_upload_mb"] = val
-            
+
         if "max_storage_mb" in data:
             val = int(data["max_storage_mb"])
             if val < 1: val = 1
             custom_config["max_storage_mb"] = val
-            
+
         if "session_hours" in data:
             val = int(data["session_hours"])
             if val < 1: val = 1
             if val > 168: val = 168
             custom_config["session_hours"] = val
+
+        if "vault_name" in data:
+            vn = str(data["vault_name"]).strip()[:50]
+            if vn:
+                custom_config["vault_name"] = vn
     except (ValueError, TypeError):
         return jsonify({"ok": False, "error": "Invalid values"}), 400
 

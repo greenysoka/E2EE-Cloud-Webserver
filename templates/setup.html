@@ -29,6 +29,10 @@
                 </label>
 
                 {% if not setup_totp %}
+                <label class="field">
+                    <span>Vault Name</span>
+                    <input id="vault-name" type="text" value="My Cloud" maxlength="50" placeholder="Name your vault" />
+                </label>
                 <div class="setup-config">
                     <label class="field">
                         <span>Max Upload (MB)</span>
