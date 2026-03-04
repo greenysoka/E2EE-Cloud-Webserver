@@ -20,8 +20,8 @@
 - [x] Add multple select/delete functionality
 - [x] Add color theme to global settings instead of browser cache
 - [x] Add naming functionality for vaults
+- [x] Add a password strength checker
 - [ ] Add a share button for files
 - [ ] API Access to support 3rd party apps
 - [ ] Maybe add a local client for Linux & Windows with mount feature for better file accessing
 - [ ] Add Images to README
-- [ ] Add a password strength checker

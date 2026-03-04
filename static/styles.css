@@ -1525,6 +1525,85 @@ select:focus {
   background-color: rgba(16, 51, 125, 0.06);
 }
 
+.password-strength-wrapper {
+  margin-top: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.strength-bar-container {
+  height: 6px;
+  background: var(--border-soft);
+  border-radius: 3px;
+  overflow: hidden;
+  width: 100%;
+}
+
+.strength-bar {
+  height: 100%;
+  width: 0%;
+  transition: width 0.3s ease, background-color 0.3s ease;
+}
+
+.strength-bar.weak {
+  background-color: var(--danger);
+  width: 25%;
+}
+
+.strength-bar.fair {
+  background-color: #fb923c;
+  width: 50%;
+}
+
+.strength-bar.good {
+  background-color: #facc15;
+  width: 75%;
+}
+
+.strength-bar.strong {
+  background-color: var(--accent-2);
+  width: 100%;
+}
+
+.strength-info {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.75rem;
+  color: var(--muted);
+}
+
+.password-checklist {
+  list-style: none;
+  padding: 0;
+  margin: 4px 0 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 4px 12px;
+}
+
+.password-checklist li {
+  font-size: 0.75rem;
+  color: var(--muted);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.password-checklist li::before {
+  content: '○';
+  color: var(--muted);
+}
+
+.password-checklist li.met {
+  color: var(--text);
+}
+
+.password-checklist li.met::before {
+  content: '●';
+  color: var(--accent-2);
+}
+
 .settings-version {
   margin-top: 16px;
   padding-top: 12px;

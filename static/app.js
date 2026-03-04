@@ -179,6 +179,48 @@ function updateSearchPlaceholder(totalFiles) {
   searchInput.placeholder = `Search in ${count} ${suffix}...`;
 }
 
+function checkPasswordStrength(password) {
+  if (!password) return null;
+  const reqs = {
+    length: password.length >= 12,
+    upper: /[A-Z]/.test(password),
+    lower: /[a-z]/.test(password),
+    number: /[0-9]/.test(password),
+    special: /[^A-Za-z0-9]/.test(password),
+  };
+
+  let score = 0;
+  if (reqs.length) score++;
+  if (reqs.upper) score++;
+  if (reqs.lower) score++;
+  if (reqs.number) score++;
+  if (reqs.special) score++;
+
+  let charset = 0;
+  if (reqs.lower) charset += 26;
+  if (reqs.upper) charset += 26;
+  if (reqs.number) charset += 10;
+  if (reqs.special) charset += 32;
+
+  const entropy = charset > 0 ? Math.log2(Math.pow(charset, password.length)) : 0;
+
+  let time = "Instantly";
+  if (entropy > 100) time = "Centuries";
+  else if (entropy > 80) time = "Years";
+  else if (entropy > 60) time = "Months";
+  else if (entropy > 40) time = "Days";
+  else if (entropy > 25) time = "Minutes";
+  else if (entropy > 15) time = "Seconds";
+
+  let label = "Weak";
+  let color = "weak";
+  if (score >= 5 && entropy > 60) { label = "Strong"; color = "strong"; }
+  else if (score >= 4 && entropy > 40) { label = "Good"; color = "good"; }
+  else if (score >= 3 && entropy > 25) { label = "Fair"; color = "fair"; }
+
+  return { label, color, time, reqs };
+}
+
 async function handleLogin() {
   const form = document.getElementById("login-form");
   if (!form) return;
@@ -247,6 +289,41 @@ async function handleSetup() {
   const totpQr = document.getElementById("totp-qr");
   const cta = document.getElementById("setup-cta");
   const errorEl = document.getElementById("setup-error");
+
+  const strengthWrapper = document.getElementById("strength-wrapper");
+  const strengthBar = document.getElementById("strength-bar");
+  const strengthText = document.getElementById("strength-text");
+  const strengthTime = document.getElementById("strength-time");
+  const reqElements = {
+    length: document.getElementById("req-length"),
+    upper: document.getElementById("req-upper"),
+    lower: document.getElementById("req-lower"),
+    number: document.getElementById("req-number"),
+    special: document.getElementById("req-special"),
+  };
+
+  if (passwordInput && strengthWrapper) {
+    passwordInput.addEventListener("input", () => {
+      const password = passwordInput.value;
+      const strength = checkPasswordStrength(password);
+
+      if (!strength) {
+        strengthWrapper.hidden = true;
+        return;
+      }
+
+      strengthWrapper.hidden = false;
+      strengthBar.className = `strength-bar ${strength.color}`;
+      strengthText.textContent = `Strength: ${strength.label}`;
+      strengthTime.textContent = `Crack time: ${strength.time}`;
+
+      Object.keys(reqElements).forEach(key => {
+        if (reqElements[key]) {
+          reqElements[key].classList.toggle("met", strength.reqs[key]);
+        }
+      });
+    });
+  }
 
   const phase = root?.dataset.phase || "password";
   let stage = phase === "totp" ? "confirm" : "init";

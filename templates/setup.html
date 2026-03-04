@@ -26,6 +26,22 @@
                     <span>Password</span>
                     <input id="password" type="password" name="password" placeholder="Choose a strong password" required
                         autocomplete="new-password" />
+                    <div id="strength-wrapper" class="password-strength-wrapper" hidden>
+                        <div class="strength-bar-container">
+                            <div id="strength-bar" class="strength-bar"></div>
+                        </div>
+                        <div class="strength-info">
+                            <span id="strength-text">Strength: Weak</span>
+                            <span id="strength-time">Crack time: < 1s</span>
+                        </div>
+                        <ul class="password-checklist">
+                            <li id="req-length">At least 12 characters</li>
+                            <li id="req-upper">At least one uppercase</li>
+                            <li id="req-lower">At least one lowercase</li>
+                            <li id="req-number">At least one number</li>
+                            <li id="req-special">At least one special char</li>
+                        </ul>
+                    </div>
                 </label>
 
                 {% if not setup_totp %}
