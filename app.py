@@ -11,8 +11,6 @@ from pathlib import Path
 
 from flask import Flask, abort, jsonify, redirect, render_template, request, send_file, session, url_for
 
-__version__ = "1.0.0"
-
 import pyotp
 import qrcode
 from cryptography.hazmat.primitives import hashes
@@ -28,6 +26,8 @@ from werkzeug.middleware.proxy_fix import ProxyFix
 
 
 BASE_DIR = Path(__file__).resolve().parent
+VERSION_FILE = BASE_DIR / "VERSION"
+__version__ = VERSION_FILE.read_text(encoding="utf-8").strip() if VERSION_FILE.exists() else "1.0.0"
 ENV_PATH = BASE_DIR / "config" / ".env"
 
 
